@@ -3,6 +3,7 @@ package app.planner.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.routines.Routine
+import app.planner.routines.RoutineScheduler
 import app.planner.routines.RoutineSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class RoutinePrefsViewModel @Inject constructor(
     private val routines: RoutineSettings,
+    private val scheduler: RoutineScheduler,
 ) : ViewModel() {
     val enabled: StateFlow<Map<Routine, Boolean>> =
         combine(Routine.entries.map { r -> routines.observeEnabled(r).map { r to it } }) { pairs -> pairs.toMap() }
@@ -28,7 +30,11 @@ class RoutinePrefsViewModel @Inject constructor(
 
     fun setEnabled(routine: Routine, on: Boolean) = viewModelScope.launch {
         routines.setEnabled(routine, on)
+        scheduler.rescheduleAll() // sets or cancels this routine's alarm right away
     }
+
+    /** Sets every alarm again, e.g. after the user allows exact alarms. */
+    fun reschedule() = viewModelScope.launch { scheduler.rescheduleAll() }
 
     fun markPromptSeen() = viewModelScope.launch { routines.markNotificationPromptSeen() }
 }
