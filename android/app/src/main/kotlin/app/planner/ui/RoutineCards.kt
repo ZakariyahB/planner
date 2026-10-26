@@ -20,11 +20,26 @@ import app.planner.routines.RoutineLaunch
 @Composable
 fun RoutineCards(vm: RoutineCardsViewModel = hiltViewModel()) {
     val plan by vm.planPending.collectAsStateWithLifecycle()
-    if (plan == null) return
+    val review by vm.reviewPending.collectAsStateWithLifecycle()
+    if (plan == null && review == null) return
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Tomorrow's plan is ready", style = MaterialTheme.typography.titleMedium)
-        Text("Look it over, switch off anything you don't want, and approve.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Button(onClick = { RoutineLaunch.open(LaunchTarget.TOMORROW_PLAN) }) { Text("Review the plan") }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        plan?.let {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Tomorrow's plan is ready", style = MaterialTheme.typography.titleMedium)
+                Text("Look it over, switch off anything you don't want, and approve.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = { RoutineLaunch.open(LaunchTarget.TOMORROW_PLAN) }) { Text("Review the plan") }
+            }
+        }
+        review?.let { week ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Sunday review", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "How the week went, deadlines and Fajr for the week of ${dateFormat.format(week)}, then next week's tasks.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(onClick = { RoutineLaunch.open(LaunchTarget.SUNDAY_REVIEW) }) { Text("Start the review") }
+            }
+        }
     }
 }

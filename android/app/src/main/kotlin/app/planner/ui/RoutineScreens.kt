@@ -22,7 +22,14 @@ fun RoutineScreens(onAsk: (String) -> Unit, onOpenTemplate: () -> Unit) {
                 RoutineLaunch.consume()
             },
         )
+        LaunchTarget.SUNDAY_REVIEW -> SundayReviewScreen(
+            onDismiss = RoutineLaunch::consume,
+            onOpenTemplate = {
+                onOpenTemplate()
+                RoutineLaunch.consume()
+            },
+        )
         LaunchTarget.TODAY -> LaunchedEffect(Unit) { RoutineLaunch.consume() } // nothing to open: the app itself is the target
-        else -> Unit
+        null -> Unit
     }
 }
