@@ -34,6 +34,7 @@ import app.planner.model.Priority
 import app.planner.model.Task
 import app.planner.model.TemplateItem
 import java.time.DayOfWeek
+import java.time.LocalTime
 import java.util.UUID
 
 @Composable
@@ -58,14 +59,19 @@ fun TemplateScreen(tasksVm: TasksViewModel, onBack: () -> Unit) {
             }
         }
         DayOfWeek.entries.forEach { day ->
-            val dayItems = template.items.filter { it.day == day }
+            val dayItems = template.items.filter { day in it.allDays }
             if (dayItems.isNotEmpty()) {
                 item(key = day.name) { SectionTitle(day.full()) }
-                items(dayItems, key = { it.id }) { item ->
+                items(dayItems, key = { "${day.name}-${it.id}" }) { item ->
                     Column(Modifier.fillMaxWidth().clickable { editing = item }.padding(vertical = 4.dp)) {
                         Text(item.title, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            listOfNotNull(item.module, "${item.estMin} min", item.anchor?.label()).joinToString(" · "),
+                            listOfNotNull(
+                                item.module,
+                                "${item.estMin} min",
+                                item.startAt?.let { "at ${timeFormat.format(it)}" },
+                                item.anchor?.label(),
+                            ).joinToString(" · "),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -101,12 +107,14 @@ private fun TemplateItemEditor(item: TemplateItem?, onSave: (TemplateItem) -> Un
     var title by remember { mutableStateOf(item?.title.orEmpty()) }
     var module by remember { mutableStateOf(item?.module.orEmpty()) }
     var minutes by remember { mutableStateOf((item?.estMin ?: 60).toString()) }
-    var day by remember { mutableStateOf(item?.day ?: DayOfWeek.MONDAY) }
+    var days by remember { mutableStateOf(item?.allDays?.toSet() ?: setOf(DayOfWeek.MONDAY)) }
+    var startAt by remember { mutableStateOf(item?.startAt) }
+    var pickingTime by remember { mutableStateOf(false) }
     var priority by remember { mutableStateOf(item?.priority ?: Priority.NORMAL) }
     var anchor by remember { mutableStateOf<Anchor?>(item?.anchor) }
 
     val estMin = minutes.toIntOrNull()
-    val valid = title.isNotBlank() && estMin != null && estMin in 5..Task.MAX_EST_MIN
+    val valid = title.isNotBlank() && estMin != null && estMin in 5..Task.MAX_EST_MIN && days.isNotEmpty()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -114,7 +122,13 @@ private fun TemplateItemEditor(item: TemplateItem?, onSave: (TemplateItem) -> Un
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DayOfWeek.entries.forEach { d -> FilterChip(selected = d == day, onClick = { day = d }, label = { Text(d.short()) }) }
+                    DayOfWeek.entries.forEach { d ->
+                        FilterChip(
+                            selected = d in days,
+                            onClick = { days = if (d in days) days - d else days + d },
+                            label = { Text(d.short()) },
+                        )
+                    }
                 }
                 OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(module, { module = it }, label = { Text("Module (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -127,6 +141,12 @@ private fun TemplateItemEditor(item: TemplateItem?, onSave: (TemplateItem) -> Un
                     isError = estMin == null || estMin !in 5..Task.MAX_EST_MIN,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { pickingTime = true }) {
+                        Text(startAt?.let { "At ${timeFormat.format(it)}" } ?: "Let the planner choose a time")
+                    }
+                    if (startAt != null) TextButton(onClick = { startAt = null }) { Text("Clear") }
+                }
                 PriorityPicker(priority) { priority = it }
                 AnchorPicker(anchor) { anchor = it }
             }
@@ -138,12 +158,13 @@ private fun TemplateItemEditor(item: TemplateItem?, onSave: (TemplateItem) -> Un
                     onSave(
                         TemplateItem(
                             id = item?.id ?: UUID.randomUUID().toString(),
-                            day = day,
+                            days = days.sortedBy { it.value },
                             title = title.trim(),
                             module = module.trim().ifBlank { null },
                             estMin = estMin!!,
                             anchor = anchor,
                             priority = priority,
+                            startAt = startAt,
                         ),
                     )
                 },
@@ -156,4 +177,13 @@ private fun TemplateItemEditor(item: TemplateItem?, onSave: (TemplateItem) -> Un
             }
         },
     )
+
+    if (pickingTime) {
+        TimePickerDialog(
+            title = "Do it at",
+            initial = startAt ?: LocalTime.of(9, 0),
+            onConfirm = { startAt = it; pickingTime = false },
+            onDismiss = { pickingTime = false },
+        )
+    }
 }
