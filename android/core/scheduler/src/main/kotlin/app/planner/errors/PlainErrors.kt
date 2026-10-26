@@ -10,6 +10,9 @@ object PlainErrors {
     const val HEALTH_READ_FAILED =
         "Couldn't read sleep from Health Connect. Open the Health Connect app, check that Planner may read sleep, then tap Refresh."
 
+    /** Opens every message about the Planner calendar: the plan itself is safe, only the copy in Google is behind. */
+    const val PLANNER_NOT_COPIED = "Your plan is saved on this phone but not in Google Calendar yet."
+
     fun calendarHttp(code: Int): String = when (code) {
         401, 403 -> "Google turned down the calendar access. Reconnect Google Calendar from Settings, then try again."
         429 -> "Google says there were too many requests. Wait a few minutes, then try again."
@@ -18,7 +21,7 @@ object PlainErrors {
     }
 
     /** When the plan could not be copied to the Planner calendar; the plan on the phone is unaffected. */
-    fun plannerCalendar(code: Int): String = "Your plan is saved on this phone but not in Google Calendar yet. ${calendarHttp(code)}"
+    fun plannerCalendar(code: Int): String = "$PLANNER_NOT_COPIED ${calendarHttp(code)}"
 
     /** [statusCode] is the Google Play services status code of a failed authorization, if there was one. */
     fun googleAuth(statusCode: Int?): String = when (statusCode) {

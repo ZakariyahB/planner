@@ -8,12 +8,14 @@ import app.planner.data.CalendarEventDao
 import app.planner.data.SettingsRepository
 import app.planner.data.toEntity
 import app.planner.data.toEvent
+import app.planner.errors.PlainErrors
 import java.io.IOException
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -66,10 +68,14 @@ class CalendarRepository @Inject constructor(
             }
             settings.saveLastSynced(clock.instant())
             SyncResult.Synced
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: CalendarHttpException) {
-            SyncResult.Failed(if (e.code == 401 || e.code == 403) "Google rejected the access (${e.code}). Reconnect Calendar." else e.message.orEmpty())
+            SyncResult.Failed(PlainErrors.calendarHttp(e.code))
         } catch (e: IOException) {
-            SyncResult.Failed("No connection to Google Calendar")
+            SyncResult.Failed(PlainErrors.CALENDAR_OFFLINE)
+        } catch (e: Exception) {
+            SyncResult.Failed(PlainErrors.CALENDAR_UNKNOWN) // an unreadable reply, say: never let it end the app
         }
     }
 

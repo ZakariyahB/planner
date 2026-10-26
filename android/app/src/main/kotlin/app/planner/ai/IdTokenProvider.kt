@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import app.planner.BuildConfig
+import app.planner.errors.PlainErrors
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -49,7 +51,7 @@ class IdTokenProvider @Inject constructor(
     suspend fun token(activity: Context? = null): TokenResult {
         cached?.takeIf { Jwt.stillValid(it, clock.instant().epochSecond, MARGIN_SECONDS) }?.let { return TokenResult.Token(it) }
         if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
-            return TokenResult.Unavailable("AI isn't set up: add GOOGLE_WEB_CLIENT_ID to android/local.properties")
+            return TokenResult.Unavailable(PlainErrors.aiNotSetUp("GOOGLE_WEB_CLIENT_ID"))
         }
 
         val interactive = activity != null
@@ -68,19 +70,22 @@ class IdTokenProvider @Inject constructor(
                 cached = token
                 TokenResult.Token(token)
             } else {
-                TokenResult.Unavailable("Google sign-in gave an unexpected result")
+                TokenResult.Unavailable(PlainErrors.googleAuth(null))
             }
         } catch (e: NoCredentialException) {
             TokenResult.NeedsSignIn
+        } catch (e: GetCredentialCancellationException) {
+            if (interactive) TokenResult.Unavailable(PlainErrors.googleAuth(CANCELLED)) else TokenResult.NeedsSignIn
         } catch (e: GetCredentialException) {
-            // Cancelled, or Google needs the user: only worth explaining when they asked to sign in.
-            if (interactive) TokenResult.Unavailable(e.message ?: "Sign-in failed") else TokenResult.NeedsSignIn
+            // Google needs the user: only worth explaining when they asked to sign in.
+            if (interactive) TokenResult.Unavailable(PlainErrors.googleAuth(null)) else TokenResult.NeedsSignIn
         } catch (e: GoogleIdTokenParsingException) {
-            TokenResult.Unavailable("Google sign-in gave an unreadable token")
+            TokenResult.Unavailable(PlainErrors.googleAuth(null))
         }
     }
 
     private companion object {
         const val MARGIN_SECONDS = 120L
+        const val CANCELLED = 16 // Google Play services' status code for "the user backed out"
     }
 }

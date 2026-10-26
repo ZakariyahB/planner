@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import app.planner.data.SettingsRepository
+import app.planner.errors.PlainErrors
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
@@ -49,7 +50,7 @@ class CalendarAuth @Inject constructor(
                     val outcome = when {
                         result.hasResolution() && pendingIntent != null -> AuthOutcome.NeedsConsent(pendingIntent.intentSender)
                         token != null -> AuthOutcome.Token(token)
-                        else -> AuthOutcome.Failed("Google returned no access token")
+                        else -> AuthOutcome.Failed(PlainErrors.googleAuth(null))
                     }
                     if (cont.isActive) cont.resume(outcome)
                 }
@@ -63,15 +64,12 @@ class CalendarAuth @Inject constructor(
     suspend fun completeConsent(data: Intent?): AuthOutcome = try {
         val result = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data)
         result.toGoogleSignInAccount()?.email?.let { settings.saveGoogleAccount(it) }
-        result.accessToken?.let { AuthOutcome.Token(it) } ?: AuthOutcome.Failed("Google returned no access token")
+        result.accessToken?.let { AuthOutcome.Token(it) } ?: AuthOutcome.Failed(PlainErrors.googleAuth(null))
     } catch (e: ApiException) {
         AuthOutcome.Failed(describe(e))
     }
 
-    private fun describe(e: Exception): String {
-        val code = (e as? ApiException)?.statusCode?.let { " (code $it)" }.orEmpty()
-        return "Google authorization failed$code: ${e.message ?: "no details"}"
-    }
+    private fun describe(e: Exception): String = PlainErrors.googleAuth((e as? ApiException)?.statusCode)
 
     private companion object {
         const val GOOGLE_ACCOUNT_TYPE = "com.google"

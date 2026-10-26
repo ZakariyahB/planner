@@ -4,12 +4,14 @@ import app.planner.data.BlockDao
 import app.planner.data.BlockEntity
 import app.planner.data.SettingsRepository
 import app.planner.data.TaskRepository
+import app.planner.errors.PlainErrors
 import java.io.IOException
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -40,16 +42,20 @@ class PlannerCalendarSync @Inject constructor(
         if (settings.lastSyncedAt.first() == null) return PlannerSyncResult.NotConnected
         val token = when (val outcome = auth.authorize()) {
             is AuthOutcome.Token -> outcome.accessToken
-            is AuthOutcome.NeedsConsent -> return PlannerSyncResult.Failed("Calendar access needs reconnecting")
+            is AuthOutcome.NeedsConsent -> return PlannerSyncResult.Failed("${PlainErrors.PLANNER_NOT_COPIED} Reconnect Google Calendar from Settings, then try again.")
             is AuthOutcome.Failed -> return PlannerSyncResult.Failed(outcome.message)
         }
         try {
             syncWith(token)
             PlannerSyncResult.Done
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: CalendarHttpException) {
-            PlannerSyncResult.Failed("Planner calendar sync failed (${e.code})")
+            PlannerSyncResult.Failed(PlainErrors.plannerCalendar(e.code))
         } catch (e: IOException) {
-            PlannerSyncResult.Failed("No connection to Google Calendar")
+            PlannerSyncResult.Failed("${PlainErrors.PLANNER_NOT_COPIED} ${PlainErrors.CALENDAR_OFFLINE}")
+        } catch (e: Exception) {
+            PlannerSyncResult.Failed("${PlainErrors.PLANNER_NOT_COPIED} ${PlainErrors.CALENDAR_UNKNOWN}") // the plan itself must never fail because of Google
         }
     }
 

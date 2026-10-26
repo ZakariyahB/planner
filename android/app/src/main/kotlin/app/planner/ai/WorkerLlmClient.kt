@@ -1,6 +1,7 @@
 package app.planner.ai
 
 import app.planner.BuildConfig
+import app.planner.errors.PlainErrors
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -20,7 +21,7 @@ class WorkerLlmClient @Inject constructor(
 
     override suspend fun send(request: LlmRequest): LlmResponse {
         if (BuildConfig.WORKER_URL.isBlank()) {
-            throw AiException(AiFailure.OTHER, "AI isn't set up: add WORKER_URL to android/local.properties")
+            throw AiException(AiFailure.OTHER, PlainErrors.aiNotSetUp("WORKER_URL"))
         }
         val token = when (val result = tokens.token()) {
             is TokenResult.Token -> result.value
@@ -31,7 +32,7 @@ class WorkerLlmClient @Inject constructor(
         val reply = try {
             withContext(Dispatchers.IO) { post(token, request) }
         } catch (e: IOException) {
-            throw AiException(AiFailure.OTHER, "No connection to the assistant")
+            throw AiException(AiFailure.OTHER, "No connection to the assistant. Check the internet and try again.")
         }
 
         if (reply.status !in 200..299) {
@@ -41,7 +42,7 @@ class WorkerLlmClient @Inject constructor(
         val response = try {
             AnthropicJson.parseResponse(reply.body)
         } catch (e: IllegalArgumentException) {
-            throw AiException(AiFailure.OTHER, "The assistant sent a reply I couldn't read")
+            throw AiException(AiFailure.OTHER, "The assistant sent a reply that couldn't be read. Try again.")
         }
         val report = UsageReport.parse(reply.usageHeader)
         report?.let { spend.record(it) }
