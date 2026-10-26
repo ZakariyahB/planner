@@ -8,6 +8,7 @@ import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.model.TemplateItem
 import app.planner.model.WeeklyTemplate
+import app.planner.model.onDates
 import app.planner.model.tasksForToday
 import app.planner.plan.PlanRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,6 +51,12 @@ class TasksViewModel @Inject constructor(
     fun save(task: Task) = viewModelScope.launch {
         if (task.id != 0L) plan.forgetBlocks(task.id) // a changed time or day must be placed afresh
         tasks.save(task)
+        plan.replan()
+    }
+
+    /** One copy of [base] on each of [dates], each due that day. */
+    fun saveOnDates(base: Task, dates: List<LocalDate>) = viewModelScope.launch {
+        tasks.saveAll(base.onDates(dates, clock.zone))
         plan.replan()
     }
 

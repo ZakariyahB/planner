@@ -1,5 +1,6 @@
 package app.planner.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import app.planner.model.Anchor
 import app.planner.model.Priority
 import app.planner.model.Task
+import app.planner.model.Weeks
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -36,7 +41,13 @@ import java.time.ZoneOffset
 /** Add (task == null) or edit a task. Due dates are end-of-day local time, like template tasks. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDismiss: () -> Unit) {
+fun TaskEditor(
+    task: Task?,
+    onSave: (Task) -> Unit,
+    onSaveOnDays: (Task, List<LocalDate>) -> Unit,
+    onDrop: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
     val zone = ZoneId.systemDefault()
     var title by remember { mutableStateOf(task?.title.orEmpty()) }
     var module by remember { mutableStateOf(task?.module.orEmpty()) }
@@ -47,6 +58,11 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
     var startAt by remember { mutableStateOf(task?.startAt) }
     var pickingDate by remember { mutableStateOf(false) }
     var pickingTime by remember { mutableStateOf(false) }
+    var days by remember { mutableStateOf(emptySet<DayOfWeek>()) }
+    var nextWeek by remember { mutableStateOf(false) }
+    val today = LocalDate.now(zone)
+    val weekMonday = Weeks.mondayOf(today).plusWeeks(if (nextWeek) 1 else 0)
+    val chosenDates = Weeks.dates(weekMonday, days).filter { it >= today }
 
     val estMin = minutes.toIntOrNull()
     val valid = title.isNotBlank() && estMin != null && estMin in 5..Task.MAX_EST_MIN
@@ -67,9 +83,14 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
                     isError = estMin == null || estMin !in 5..Task.MAX_EST_MIN,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { pickingDate = true }) { Text(due?.format(dateFormat)?.let { "Due $it" } ?: "No due date") }
-                    if (due != null) TextButton(onClick = { due = null }) { Text("Clear") }
+                if (task == null) {
+                    DayChooser(days, nextWeek, weekMonday, today, onDays = { days = it }, onNextWeek = { nextWeek = it })
+                }
+                if (chosenDates.isEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { pickingDate = true }) { Text(due?.format(dateFormat)?.let { "Due $it" } ?: "No due date") }
+                        if (due != null) TextButton(onClick = { due = null }) { Text("Clear") }
+                    }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { pickingTime = true }) {
@@ -86,8 +107,7 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
                 enabled = valid,
                 onClick = {
                     val base = task ?: Task(title = title.trim(), estMin = estMin!!)
-                    onSave(
-                        base.copy(
+                    val edited = base.copy(
                             title = title.trim(),
                             module = module.trim().ifBlank { null },
                             estMin = estMin!!,
@@ -95,8 +115,8 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
                             priority = priority,
                             anchor = anchor,
                             startAt = startAt,
-                        ),
-                    )
+                        )
+                    if (task == null && chosenDates.isNotEmpty()) onSaveOnDays(edited, chosenDates) else onSave(edited)
                 },
             ) { Text("Save") }
         },
@@ -132,5 +152,35 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
             },
             dismissButton = { TextButton(onClick = { pickingDate = false }) { Text("Cancel") } },
         ) { DatePicker(state = state) }
+    }
+}
+
+/** Pick any days of this week or next; each chosen day becomes its own task. Past days are disabled. */
+@Composable
+private fun DayChooser(
+    days: Set<DayOfWeek>,
+    nextWeek: Boolean,
+    weekMonday: LocalDate,
+    today: LocalDate,
+    onDays: (Set<DayOfWeek>) -> Unit,
+    onNextWeek: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Days (optional)", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = !nextWeek, onClick = { onNextWeek(false) }, label = { Text("This week") })
+            FilterChip(selected = nextWeek, onClick = { onNextWeek(true) }, label = { Text("Next week") })
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DayOfWeek.entries.forEach { d ->
+                val date = weekMonday.plusDays((d.value - DayOfWeek.MONDAY.value).toLong())
+                FilterChip(
+                    selected = d in days,
+                    enabled = date >= today,
+                    onClick = { onDays(if (d in days) days - d else days + d) },
+                    label = { Text(d.short()) },
+                )
+            }
+        }
     }
 }

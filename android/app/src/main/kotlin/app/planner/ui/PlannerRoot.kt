@@ -107,6 +107,7 @@ fun PlannerRoot() {
         TaskEditor(
             task = target.task,
             onSave = { tasksVm.save(it); editor = null },
+            onSaveOnDays = { t, dates -> tasksVm.saveOnDates(t, dates); editor = null },
             onDrop = target.task?.let { t -> { tasksVm.drop(t); editor = null } },
             onDismiss = { editor = null },
         )
