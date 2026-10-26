@@ -22,11 +22,6 @@ import kotlinx.coroutines.CancellationException
 @InstallIn(SingletonComponent::class)
 interface RoutineEntryPoint {
     fun runner(): RoutineRunner
-
-    companion object {
-        fun runner(context: Context): RoutineRunner =
-            EntryPointAccessors.fromApplication(context.applicationContext, RoutineEntryPoint::class.java).runner()
-    }
 }
 
 /** Entry points for starting routine work from receivers and from app start. */
@@ -38,6 +33,9 @@ object RoutineWork {
 
     private const val PERIODIC_NAME = "routines-periodic"
     private const val PERIODIC_MINUTES = 15L
+
+    fun runner(context: Context): RoutineRunner =
+        EntryPointAccessors.fromApplication(context.applicationContext, RoutineEntryPoint::class.java).runner()
 
     /** A timed routine's alarm went off. */
     fun fire(context: Context, routine: Routine) = enqueue(context, routine.name, "routine-${routine.name}", ExistingWorkPolicy.REPLACE)
@@ -69,7 +67,7 @@ private const val TAG = "RoutineWork"
 class RoutineWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         try {
-            RoutineEntryPoint.runner(applicationContext).runJob(inputData.getString(RoutineWork.KEY_JOB))
+            RoutineWork.runner(applicationContext).runJob(inputData.getString(RoutineWork.KEY_JOB))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -83,7 +81,7 @@ class RoutineWorker(context: Context, params: WorkerParameters) : CoroutineWorke
 class PeriodicSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         try {
-            RoutineEntryPoint.runner(applicationContext).periodic()
+            RoutineWork.runner(applicationContext).periodic()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
