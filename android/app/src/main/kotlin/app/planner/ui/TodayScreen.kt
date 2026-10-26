@@ -12,9 +12,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
@@ -22,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.model.TaskStatus
+import app.planner.scheduler.Block
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -29,7 +34,10 @@ import java.time.ZoneId
 fun TodayScreen(
     tasksVm: TasksViewModel,
     calVm: CalendarViewModel,
+    planVm: PlanViewModel,
+    readinessVm: ReadinessViewModel,
     onConnect: () -> Unit,
+    onAllowHealth: () -> Unit,
     onEdit: (Task) -> Unit,
     onAdd: () -> Unit,
 ) {
@@ -38,6 +46,14 @@ fun TodayScreen(
     val today by calVm.today.collectAsStateWithLifecycle()
     val sync by calVm.sync.collectAsStateWithLifecycle()
     val lastSynced by calVm.lastSyncedAt.collectAsStateWithLifecycle()
+    val blocks by planVm.todayBlocks.collectAsStateWithLifecycle()
+    val summary by planVm.summary.collectAsStateWithLifecycle()
+    val allTasks by planVm.tasksById.collectAsStateWithLifecycle()
+    val readiness by readinessVm.view.collectAsStateWithLifecycle()
+    val health by readinessVm.health.collectAsStateWithLifecycle()
+    val note by readinessVm.syncNote.collectAsStateWithLifecycle()
+    val fajr by readinessVm.fajrThisWeek.collectAsStateWithLifecycle()
+    var manualSleep by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -46,6 +62,18 @@ fun TodayScreen(
         item {
             Text(LocalDate.now(zone).format(dayHeaderFormat), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
         }
+
+        item {
+            ReadinessCard(
+                view = readiness,
+                health = health,
+                note = note,
+                onAllowHealth = onAllowHealth,
+                onRefresh = readinessVm::syncSleep,
+                onManualSleep = { manualSleep = true },
+            )
+        }
+        if (fajr == null) item { FajrCard(onSet = readinessVm::saveFajr) }
 
         if (lastSynced == null || sync is SyncUi.NeedsConsent || sync is SyncUi.Failed) {
             item { ConnectCard(sync, connected = lastSynced != null, onConnect = onConnect) }
@@ -66,17 +94,33 @@ fun TodayScreen(
             item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
         }
 
+        item { PlanNotes(summary, allTasks, onApproveCut = planVm::approveLoadCut) }
+
         item { SectionTitle("Tasks") }
         if (tasks.isEmpty()) {
             item { Text("Nothing due. Add a task, or generate this week from the weekly template in Settings.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        items(tasks, key = { it.id }) { task -> TaskRow(task, zone, onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) }) }
-        item { Button(onClick = onAdd, modifier = Modifier.padding(vertical = 8.dp)) { Text("Add task") } }
+        items(tasks, key = { it.id }) { task ->
+            TaskRow(task, zone, blocks[task.id], onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) })
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                Button(onClick = onAdd) { Text("Add task") }
+                OutlinedButton(onClick = planVm::replan) { Text("Replan") }
+            }
+        }
+    }
+
+    if (manualSleep) {
+        ManualSleepDialog(
+            onSave = { bed, wake -> readinessVm.addManualSleep(bed, wake); manualSleep = false },
+            onDismiss = { manualSleep = false },
+        )
     }
 }
 
 @Composable
-fun TaskRow(task: Task, zone: ZoneId, onToggle: () -> Unit, onClick: () -> Unit) {
+fun TaskRow(task: Task, zone: ZoneId, block: Block?, onToggle: () -> Unit, onClick: () -> Unit) {
     val done = task.status == TaskStatus.DONE
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -91,6 +135,14 @@ fun TaskRow(task: Task, zone: ZoneId, onToggle: () -> Unit, onClick: () -> Unit)
                 color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
             Text(taskMeta(task, zone), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (block != null) {
+            Text(
+                "${timeFormat.format(block.start)}–${timeFormat.format(block.end)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp),
+            )
         }
     }
 }

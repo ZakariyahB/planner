@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,11 +21,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
+import app.planner.sleep.SleepRepository
 
-private enum class Tab(val label: String) { TODAY("Today"), TASKS("Tasks"), SETTINGS("Settings") }
+private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), SETTINGS("Settings") }
 
 /** Null [task] means "add a new one". */
 private data class EditorTarget(val task: Task?)
@@ -31,15 +36,18 @@ private data class EditorTarget(val task: Task?)
 fun PlannerRoot() {
     val tasksVm: TasksViewModel = hiltViewModel()
     val calVm: CalendarViewModel = hiltViewModel()
+    val planVm: PlanViewModel = hiltViewModel()
+    val readinessVm: ReadinessViewModel = hiltViewModel()
 
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
     var showTemplate by rememberSaveable { mutableStateOf(false) }
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
+    val snackbar = remember { SnackbarHostState() }
 
     // Google's consent screen opens only after the user taps Connect, never on a silent background sync.
     var userConnecting by remember { mutableStateOf(false) }
     val sync by calVm.sync.collectAsStateWithLifecycle()
-    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { calVm.refresh() }
+    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { calVm.onConsentResult(it.data) }
     LaunchedEffect(sync, userConnecting) {
         val s = sync
         when {
@@ -56,9 +64,22 @@ fun PlannerRoot() {
         Unit
     }
 
+    // Health Connect has its own permission screen; when it closes, read sleep again.
+    val health = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { readinessVm.syncSleep() }
+    val onAllowHealth = { health.launch(SleepRepository.PERMISSIONS) }
+
+    // Plan feedback, with Undo when the change can be reverted.
+    LaunchedEffect(Unit) {
+        planVm.messages.collect { m ->
+            val result = snackbar.showSnackbar(m.text, actionLabel = if (m.undoChangeId != null) "Undo" else null)
+            if (result == SnackbarResult.ActionPerformed) m.undoChangeId?.let(planVm::undo)
+        }
+    }
+
     BackHandler(enabled = showTemplate) { showTemplate = false }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { t ->
@@ -67,13 +88,17 @@ fun PlannerRoot() {
             }
         },
     ) { padding ->
-        val modifier = Modifier.padding(padding)
-        Box(modifier) {
-            when {
-                tab == Tab.TODAY -> TodayScreen(tasksVm, calVm, onConnect, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) })
-                tab == Tab.TASKS -> TasksScreen(tasksVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) })
-                showTemplate -> TemplateScreen(tasksVm, onBack = { showTemplate = false })
-                else -> SettingsScreen(calVm, onConnect, onOpenTemplate = { showTemplate = true })
+        Box(Modifier.padding(padding)) {
+            when (tab) {
+                Tab.TODAY -> TodayScreen(
+                    tasksVm, calVm, planVm, readinessVm, onConnect, onAllowHealth,
+                    onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) },
+                )
+                Tab.CALENDAR -> CalendarScreen(planVm)
+                Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) })
+                Tab.SETTINGS ->
+                    if (showTemplate) TemplateScreen(tasksVm, onBack = { showTemplate = false })
+                    else SettingsScreen(calVm, readinessVm, planVm, onConnect, onAllowHealth, onOpenTemplate = { showTemplate = true })
             }
         }
     }
