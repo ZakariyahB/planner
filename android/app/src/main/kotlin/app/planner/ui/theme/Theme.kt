@@ -26,10 +26,13 @@ private val GreenDark = Color(0xFF4CC585)
 private val Amber = Color(0xFFD98A00)
 private val AmberDark = Color(0xFFFFB84D)
 
-@Immutable
-data class StatusColors(val good: Color, val warning: Color)
+// Amber is too faint to read as text on white (about 2.9:1), so words use a darker shade of it.
+private val AmberText = Color(0xFF8A5A00)
 
-val LocalStatusColors = staticCompositionLocalOf { StatusColors(Green, Amber) }
+@Immutable
+data class StatusColors(val good: Color, val warning: Color, val warningText: Color)
+
+val LocalStatusColors = staticCompositionLocalOf { StatusColors(Green, Amber, AmberText) }
 
 private val LightColors = lightColorScheme(
     primary = Blue,
@@ -80,7 +83,7 @@ val PlannerShapes = Shapes(
 
 @Composable
 fun PlannerTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val status = if (darkTheme) StatusColors(GreenDark, AmberDark) else StatusColors(Green, Amber)
+    val status = if (darkTheme) StatusColors(GreenDark, AmberDark, AmberDark) else StatusColors(Green, Amber, AmberText)
     CompositionLocalProvider(LocalStatusColors provides status) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,
