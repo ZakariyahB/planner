@@ -54,4 +54,4 @@ The system prompt and tool definitions live in `docs/prompts` and are bundled in
 
 ## Status
 
-See the milestone list in docs/PLAN.md. M0 to M6 are written: M5 is the routines (exact-alarm notifications, the 23:30 plan sheet and the Sunday review) and M6 is social time. The pure-Kotlin core and the Worker are tested; the `:app` module was written without an Android SDK to compile against, so check it in Android Studio. M7 (polish) is in progress.
+See the milestone list in docs/PLAN.md. M0 to M6 are written. M7 (polish) is partly done: Insights, editable day rules, the change history and the reorganised Settings are in; backup and restore, the log-progress sheet on Today, the first-run setup checklist and the SETUP and MANUAL guides are not yet. The pure-Kotlin core and the Worker are tested; the `:app` module was written without an Android SDK to compile against, so check it in Android Studio.
