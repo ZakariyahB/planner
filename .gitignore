@@ -1,0 +1,18 @@
+# Android / Gradle
+.gradle/
+build/
+*.iml
+.idea/
+local.properties
+captures/
+.cxx/
+
+# Worker
+node_modules/
+.wrangler/
+.dev.vars
+
+# OS
+.DS_Store
+Thumbs.db
+.kotlin/
