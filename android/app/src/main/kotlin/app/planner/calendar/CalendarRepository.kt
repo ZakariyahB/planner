@@ -1,5 +1,6 @@
 package app.planner.calendar
 
+import android.content.Intent
 import android.content.IntentSender
 import androidx.room.withTransaction
 import app.planner.data.AppDatabase
@@ -33,9 +34,14 @@ class CalendarRepository @Inject constructor(
 ) {
     val cachedEvents: Flow<List<CalendarEvent>> = events.observeAll().map { rows -> rows.map { it.toEvent() } }
 
-    /** Refreshes the calendar list and the events of the selected calendars from yesterday to [WINDOW_DAYS] ahead. */
-    suspend fun sync(): SyncResult {
-        val token = when (val outcome = auth.authorize()) {
+    /** Refreshes the calendar list and the events of the selected and prayer calendars from yesterday to [WINDOW_DAYS] ahead. */
+    suspend fun sync(): SyncResult = syncWith(auth.authorize())
+
+    /** Called with the intent returned by the consent screen. */
+    suspend fun finishConsent(data: Intent?): SyncResult = syncWith(auth.completeConsent(data))
+
+    private suspend fun syncWith(outcome: AuthOutcome): SyncResult {
+        val token = when (outcome) {
             is AuthOutcome.Token -> outcome.accessToken
             is AuthOutcome.NeedsConsent -> return SyncResult.NeedsConsent(outcome.sender)
             is AuthOutcome.Failed -> return SyncResult.Failed(outcome.message)
@@ -48,7 +54,11 @@ class CalendarRepository @Inject constructor(
             val today = LocalDate.now(clock).atStartOfDay(clock.zone).toInstant()
             val from = today.minus(Duration.ofDays(1))
             val to = today.plus(Duration.ofDays(WINDOW_DAYS))
-            val fetched = calendars.filter { it.id in selected }.flatMap { client.listEvents(token, it.id, from, to) }
+            // The prayer calendar is always read (for prayer times) even though it is not a fixed-commitment
+            // source; the Planner calendar is ours and is synced separately.
+            val plannerId = settings.plannerCalendar()
+            val toFetch = calendars.filter { (it.id in selected || PrayerTimes.isPrayerCalendar(it.name)) && it.id != plannerId }
+            val fetched = toFetch.flatMap { client.listEvents(token, it.id, from, to) }
 
             db.withTransaction {
                 events.deleteAll()
