@@ -100,15 +100,14 @@ object NotificationTexts {
         val parts = mutableListOf(
             if (day.taskCount == 0) "Nothing planned tomorrow." else plannedSentence(day, "tomorrow", withPlanned = false),
         )
-        if (forecast != null) {
-            val usual = if (forecast.usualLightsOut != null && forecast.usualScore != null) {
-                "; your usual ${clock.format(forecast.usualLightsOut)} gives ${forecast.usualScore}"
-            } else {
-                ""
-            }
-            parts += "Lights-out at ${clock.format(forecast.onTimeLightsOut)} gives readiness ${forecast.onTimeScore}$usual."
-        }
+        if (forecast != null) parts += forecastLine(forecast)
         return NotificationText("Tomorrow's plan is ready", parts.joinToString(" "))
+    }
+
+    /** "Lights-out at 00:15 gives readiness 78; your usual 01:27 gives 52." */
+    fun forecastLine(f: ForecastNote): String {
+        val usual = if (f.usualLightsOut != null && f.usualScore != null) "; your usual ${clock.format(f.usualLightsOut)} gives ${f.usualScore}" else ""
+        return "Lights-out at ${clock.format(f.onTimeLightsOut)} gives readiness ${f.onTimeScore}$usual."
     }
 
     fun lightsOutSoon(lightsOut: LocalTime, wake: LocalTime, minutes: Int = RoutineSchedule.LIGHTS_OUT_WARNING_MIN): NotificationText {
