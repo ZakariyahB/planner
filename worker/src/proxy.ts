@@ -1,4 +1,5 @@
 import type { Deps, Env } from "./index";
+import { getSpendGbp } from "./spend";
 
 const UPSTREAM_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_CHAT_MODEL = "claude-sonnet-5-5";
@@ -27,6 +28,13 @@ export function json(body: unknown, status: number): Response {
 export async function forwardMessages(req: Request, env: Env, deps: Deps): Promise<Response> {
   const purpose = purposeOf(req.headers.get("X-Planner-Purpose"));
   if (!purpose) return json({ error: "unknown purpose" }, 400);
+
+  const cap = Number(env.MONTHLY_CAP_GBP);
+  const now = (deps.now ?? (() => new Date()))();
+  // An unreadable cap blocks everything: failing closed is safer than spending without a limit.
+  if (!Number.isFinite(cap) || cap <= 0 || (await getSpendGbp(env.USAGE, now)) >= cap) {
+    return json({ error: "monthly AI cap reached" }, 402);
+  }
 
   const text = await req.text();
   if (text.length > MAX_BODY_CHARS) return json({ error: "request too large" }, 413);

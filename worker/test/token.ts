@@ -1,4 +1,5 @@
 import type { Env } from "../src/index";
+import { asKv, FakeKV } from "./fakes";
 
 export const CLIENT_ID = "web-client.apps.googleusercontent.com";
 export const EMAIL = "bello.zakariyah20@gmail.com";
@@ -43,5 +44,10 @@ export const goodClaims = () => ({
 /** Auth dependencies that use the test key instead of Google's published keys. */
 export const authDeps = () => ({ fetchJwks: async () => [publicJwk], nowSeconds: () => NOW });
 
-export const baseEnv = (): Env =>
-  ({ ALLOWED_EMAIL: EMAIL, GOOGLE_WEB_CLIENT_ID: CLIENT_ID, MONTHLY_CAP_GBP: "15" }) as Env;
+export const baseEnv = (): Env => ({
+  ALLOWED_EMAIL: EMAIL,
+  GOOGLE_WEB_CLIENT_ID: CLIENT_ID,
+  MONTHLY_CAP_GBP: "15",
+  ANTHROPIC_API_KEY: "sk-test-key",
+  USAGE: asKv(new FakeKV()),
+});

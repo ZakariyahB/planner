@@ -166,3 +166,40 @@ describe("upstream failures", () => {
     expect((await call(s, chat)).status).toBe(502);
   });
 });
+
+describe("monthly spend cap", () => {
+  const spendKey = "spend:2026-10";
+
+  it("answers 402 and does not call Anthropic once the cap is reached", async () => {
+    const s = setup();
+    s.kv.store.set(spendKey, "15");
+    const res = await call(s, chat);
+    expect(res.status).toBe(402);
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it("still serves requests while under the cap", async () => {
+    const s = setup();
+    s.kv.store.set(spendKey, "14.99");
+    expect((await call(s, chat)).status).toBe(200);
+  });
+
+  it("uses the cap from the environment", async () => {
+    const s = setup();
+    s.env.MONTHLY_CAP_GBP = "1";
+    s.kv.store.set(spendKey, "1.5");
+    expect((await call(s, chat)).status).toBe(402);
+  });
+
+  it("counts only this month's spend", async () => {
+    const s = setup();
+    s.kv.store.set("spend:2026-09", "99");
+    expect((await call(s, chat)).status).toBe(200);
+  });
+
+  it("refuses everything if the cap is missing or invalid, rather than spending without limit", async () => {
+    const s = setup();
+    s.env.MONTHLY_CAP_GBP = "not a number";
+    expect((await call(s, chat)).status).toBe(402);
+  });
+});
