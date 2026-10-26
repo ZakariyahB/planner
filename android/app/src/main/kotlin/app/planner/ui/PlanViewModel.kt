@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.data.TaskRepository
 import app.planner.model.Task
+import app.planner.model.DayTaskList
 import app.planner.model.TaskStatus
 import app.planner.model.Weeks
 import app.planner.plan.DayView
@@ -53,6 +54,15 @@ class PlanViewModel @Inject constructor(
 
     val tasksById: StateFlow<Map<Long, Task>> = tasks.tasks.map { list -> list.associateBy { it.id } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    val scheduledBlocks: StateFlow<List<Block>> = plan.dayViews(LocalDate.now(clock), LocalDate.now(clock).plusDays(PlanRepository.HORIZON_DAYS - 1L))
+        .map { views -> views.flatMap { it.blocks } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val todayTasks: StateFlow<List<Task>> = combine(tasks.tasks, scheduledBlocks, plan.summary) { list, blocks, summary ->
+        val today = LocalDate.now(clock)
+        DayTaskList.on(today, today, clock.zone, list, blocks, summary.overflow.map { it.id }.toSet()).all
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Today's block per task, for the suggested times on the Today list. */
     val todayBlocks: StateFlow<Map<Long, Block>> = plan.dayViews(LocalDate.now(clock), LocalDate.now(clock))
