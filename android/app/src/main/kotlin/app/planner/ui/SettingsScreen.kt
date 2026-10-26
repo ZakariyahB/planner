@@ -39,6 +39,7 @@ enum class SettingsPage(val title: String) {
     NOTIFICATIONS("Notifications"),
     ASSISTANT("Assistant"),
     HISTORY("Change history"),
+    BACKUP("Backup and restore"),
 }
 
 @Composable
@@ -63,6 +64,7 @@ fun SettingsScreen(
         SettingsPage.NOTIFICATIONS -> SettingsList { item { RoutineSettingsSection() } }
         SettingsPage.ASSISTANT -> AssistantPage(chatVm)
         SettingsPage.HISTORY -> HistoryScreen(hiltViewModel())
+        SettingsPage.BACKUP -> BackupScreen(hiltViewModel())
     }
 }
 
@@ -97,6 +99,7 @@ private val HOME_GROUPS = listOf(
     )),
     HomeGroup("Your data", listOf(
         HomeRow(SettingsPage.HISTORY, "Change history") { "Every change, each can be undone" },
+        HomeRow(SettingsPage.BACKUP, "Backup and restore") { "Save everything to a file, or restore one" },
     )),
 )
 
