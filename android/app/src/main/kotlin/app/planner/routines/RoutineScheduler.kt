@@ -1,5 +1,6 @@
 package app.planner.routines
 
+import app.planner.data.DayRulesRepository
 import android.content.Context
 import app.planner.plan.PlanRepository
 import app.planner.scheduler.DayRules
@@ -17,6 +18,7 @@ class RoutineScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val plan: PlanRepository,
     private val routines: RoutineSettings,
+    private val dayRules: DayRulesRepository,
     private val clock: Clock,
 ) {
     /**
@@ -36,7 +38,7 @@ class RoutineScheduler @Inject constructor(
         } catch (e: Exception) {
             emptyMap() // no calendar data: treat every day as ordinary rather than not scheduling at all
         }
-        val rules = DayRules()
+        val rules = dayRules.current()
         var allExact = true
         for (routine in Routine.TIMED) {
             if (!routines.enabled(routine)) {

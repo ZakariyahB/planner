@@ -1,5 +1,6 @@
 package app.planner.ui
 
+import app.planner.data.DayRulesRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.routines.ForecastNote
@@ -34,6 +35,7 @@ class TomorrowPlanViewModel @Inject constructor(
     private val plans: TomorrowPlanRepository,
     private val routines: RoutineSettings,
     private val readiness: ReadinessRepository,
+    private val dayRules: DayRulesRepository,
     private val clock: Clock,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(TomorrowPlanUi(planDate()))
@@ -46,7 +48,7 @@ class TomorrowPlanViewModel @Inject constructor(
             val rows = plans.rowsOn(date)
             val forecast = try {
                 readiness.evaluate().forecast?.let {
-                    NotificationTexts.forecastLine(ForecastNote(DayRules().lightsOut, it.onTime.score, it.usualLightsOut, it.usual?.score))
+                    NotificationTexts.forecastLine(ForecastNote(dayRules.current().lightsOut, it.onTime.score, it.usualLightsOut, it.usual?.score))
                 }
             } catch (e: CancellationException) {
                 throw e
