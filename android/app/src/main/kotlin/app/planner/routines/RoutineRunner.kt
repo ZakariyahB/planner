@@ -1,5 +1,6 @@
 package app.planner.routines
 
+import app.planner.data.DayRulesRepository
 import android.content.Context
 import android.util.Log
 import app.planner.data.BlockDao
@@ -52,10 +53,9 @@ class RoutineRunner @Inject constructor(
     private val planRows: TomorrowPlanRepository,
     private val planNotes: PlanNoteWriter,
     private val reviews: SundayReviewRepository,
+    private val dayRules: DayRulesRepository,
     private val clock: Clock,
 ) {
-    private val rules = DayRules()
-
     suspend fun runJob(job: String?) {
         when (job) {
             RoutineWork.JOB_RESCHEDULE -> {
@@ -97,7 +97,7 @@ class RoutineRunner @Inject constructor(
         val text = when (routine) {
             Routine.PROVISIONAL_READINESS -> {
                 val readiness = ReadinessEngine.score(ReadinessInputs(asleepMin = 210, debtMin = 300, lightsOutDelayMin = 72, doneRatio = 0.8))
-                NotificationTexts.provisionalReadiness(210, readiness, BackToBedAdvice(210, rules.wake))
+                NotificationTexts.provisionalReadiness(210, readiness, BackToBedAdvice(210, dayRules.current().wake))
             }
             else -> {
                 val readiness = ReadinessEngine.score(ReadinessInputs(asleepMin = 300, debtMin = 360, lightsOutDelayMin = 72, doneRatio = 0.7))
@@ -150,7 +150,8 @@ class RoutineRunner @Inject constructor(
         routines.markSent(Routine.PLAN_READY, today)
     }
 
-    private fun lightsOut() {
+    private suspend fun lightsOut() {
+        val rules = dayRules.current()
         notifier.post(Routine.LIGHTS_OUT, NotificationTexts.lightsOutSoon(rules.lightsOut, rules.wake))
     }
 
@@ -175,7 +176,7 @@ class RoutineRunner @Inject constructor(
         val view = readiness.evaluate()
         val state = view.state as? ReadinessState.Provisional ?: return
         val fajr = settings.fajrWeeks.first()[Weeks.mondayOf(today)]
-        if (!RoutineTriggers.provisionalDue(view.night, clock.instant(), clock.zone, fajr, rules.wake, sentOn)) return
+        if (!RoutineTriggers.provisionalDue(view.night, clock.instant(), clock.zone, fajr, dayRules.current().wake, sentOn)) return
         notifier.post(
             Routine.PROVISIONAL_READINESS,
             NotificationTexts.provisionalReadiness(state.asleepSoFarMin, state.readiness, state.advice),
@@ -230,7 +231,7 @@ class RoutineRunner @Inject constructor(
 
     private suspend fun forecastNote(): ForecastNote? {
         val f = readiness.evaluate().forecast ?: return null
-        return ForecastNote(rules.lightsOut, f.onTime.score, f.usualLightsOut, f.usual?.score)
+        return ForecastNote(dayRules.current().lightsOut, f.onTime.score, f.usualLightsOut, f.usual?.score)
     }
 
     /** Tasks that had a block on [date], once each, with their current status. */

@@ -1,6 +1,7 @@
 package app.planner.sleep
 
 import app.planner.data.BlockDao
+import app.planner.data.DayRulesRepository
 import app.planner.data.ReadinessDao
 import app.planner.data.SleepDao
 import app.planner.data.TaskRepository
@@ -40,14 +41,15 @@ class ReadinessRepository @Inject constructor(
     private val readinessDao: ReadinessDao,
     private val blocks: BlockDao,
     private val tasks: TaskRepository,
+    private val dayRules: DayRulesRepository,
     private val clock: Clock,
 ) {
-    private val rules = DayRules()
 
     /** A stored final score is returned as is; anything else is computed from the sleep on record. */
     suspend fun evaluate(awakeConfirmed: Boolean = false): ReadinessView {
         val now = clock.instant()
         val today = LocalDate.now(clock)
+        val rules = dayRules.current()
         val nights = nights()
         val doneRatio = doneRatio(today.minusDays(1))
 
@@ -61,7 +63,7 @@ class ReadinessRepository @Inject constructor(
             }
             computed to (computed is ReadinessState.Final)
         }
-        return ReadinessView(state, newlyFinal, forecast(nights, today, doneRatio = doneRatio(today)), nights.firstOrNull { it.date == today })
+        return ReadinessView(state, newlyFinal, forecast(nights, today, rules, doneRatio = doneRatio(today)), nights.firstOrNull { it.date == today })
     }
 
     /** The last [count] nights on record, oldest first. */
@@ -80,7 +82,7 @@ class ReadinessRepository @Inject constructor(
     }
 
     /** Shown from 23:30: what tomorrow's score looks like for lights-out at 00:15 against his usual time. */
-    private fun forecast(nights: List<SleepNight>, today: LocalDate, doneRatio: Double?): Forecast? {
+    private fun forecast(nights: List<SleepNight>, today: LocalDate, rules: DayRules, doneRatio: Double?): Forecast? {
         if (LocalTime.now(clock) < FORECAST_FROM) return null
         val onTime = ReadinessEngine.forecast(rules.lightsOut, rules.wake, today, nights, doneRatio)
         val usualTime = ReadinessEngine.medianLightsOut(nights.takeLast(7), clock.zone)
