@@ -42,7 +42,7 @@ class PlanViewModel @Inject constructor(
     private val tasks: TaskRepository,
     private val clock: Clock,
 ) : ViewModel() {
-    val mode = MutableStateFlow(CalendarMode.THREE_DAY)
+    val mode = MutableStateFlow(CalendarMode.DAY)
     private val anchor = MutableStateFlow(LocalDate.now(clock))
 
     val visibleStart: StateFlow<LocalDate> = combine(mode, anchor) { m, a -> if (m == CalendarMode.WEEK) Weeks.mondayOf(a) else a }
@@ -95,6 +95,8 @@ class PlanViewModel @Inject constructor(
     fun goToToday() {
         anchor.value = LocalDate.now(clock)
     }
+
+    fun goToDate(date: LocalDate) { anchor.value = date }
 
     fun replan() = viewModelScope.launch {
         val summary = plan.replan()
