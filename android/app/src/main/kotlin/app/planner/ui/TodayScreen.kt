@@ -24,10 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.scheduler.Block
+import app.planner.setup.SetupChecklist
 import app.planner.social.SocialTimeCard
 import java.time.LocalDate
 import java.time.ZoneId
@@ -58,12 +62,26 @@ fun TodayScreen(
     val fajr by readinessVm.fajrThisWeek.collectAsStateWithLifecycle()
     var manualSleep by remember { mutableStateOf(false) }
 
+    // The first-run checklist, re-checked each time the app comes back from a settings screen.
+    val setupVm: SetupViewModel = hiltViewModel()
+    val setupItems by setupVm.items.collectAsStateWithLifecycle()
+    val setupNote by setupVm.note.collectAsStateWithLifecycle()
+    val setupShowing = setupItems?.let { !SetupChecklist.isComplete(it) } == true
+    val setupHandlesIt = setupItems == null || setupShowing // its rows cover the Fajr and Connect prompts below
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { setupVm.refresh() }
+
     LazyColumn(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             Text(LocalDate.now(zone).format(dayHeaderFormat), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
+        }
+
+        setupItems?.takeIf { setupShowing }?.let { items ->
+            item {
+                SetupCard(items, setupNote, setupVm, onConnect, onAllowHealth, onSetFajr = readinessVm::saveFajr)
+            }
         }
 
         item {
@@ -76,11 +94,11 @@ fun TodayScreen(
                 onManualSleep = { manualSleep = true },
             )
         }
-        if (fajr == null) item { FajrCard(onSet = readinessVm::saveFajr) }
+        if (fajr == null && !setupHandlesIt) item { FajrCard(onSet = readinessVm::saveFajr) }
 
         item { SocialTimeCard() }
 
-        if (lastSynced == null || sync is SyncUi.NeedsConsent || sync is SyncUi.Failed) {
+        if ((lastSynced == null && !setupHandlesIt) || sync is SyncUi.NeedsConsent || sync is SyncUi.Failed) {
             item { ConnectCard(sync, connected = lastSynced != null, onConnect = onConnect) }
         }
 
