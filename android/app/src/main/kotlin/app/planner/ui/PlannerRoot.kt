@@ -10,6 +10,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -30,8 +31,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.sleep.SleepRepository
 import app.planner.social.SocialEffects
+import kotlinx.coroutines.flow.collectLatest
 
 private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), ASK("Ask"), INSIGHTS("Insights") }
+
+/**
+ * Shows [text] briefly, with Undo when [undoChangeId] is set. A snackbar with an action never times out unless it
+ * is given a duration, so one is always set; every change can also be undone later from Change history.
+ */
+private suspend fun SnackbarHostState.announce(text: String, undoChangeId: Long?, undo: (Long) -> Unit) {
+    val result = showSnackbar(text, actionLabel = if (undoChangeId != null) "Undo" else null, duration = SnackbarDuration.Short)
+    if (result == SnackbarResult.ActionPerformed) undoChangeId?.let(undo)
+}
 
 /** Null [task] means "add a new one". */
 private data class EditorTarget(val task: Task?)
@@ -81,18 +92,12 @@ fun PlannerRoot() {
 
     // Plan feedback, with Undo when the change can be reverted.
     LaunchedEffect(Unit) {
-        planVm.messages.collect { m ->
-            val result = snackbar.showSnackbar(m.text, actionLabel = if (m.undoChangeId != null) "Undo" else null)
-            if (result == SnackbarResult.ActionPerformed) m.undoChangeId?.let(planVm::undo)
-        }
+        planVm.messages.collectLatest { m -> snackbar.announce(m.text, m.undoChangeId, planVm::undo) }
     }
 
     // Changes the assistant made for the user get the same Undo snackbar.
     LaunchedEffect(Unit) {
-        chatVm.announcements.collect { m ->
-            val result = snackbar.showSnackbar(m.text, actionLabel = if (m.undoChangeId != null) "Undo" else null)
-            if (result == SnackbarResult.ActionPerformed) m.undoChangeId?.let(planVm::undo)
-        }
+        chatVm.announcements.collectLatest { m -> snackbar.announce(m.text, m.undoChangeId, planVm::undo) }
     }
 
     val openTemplate = { showSettings = true; settingsPage = SettingsPage.TEMPLATE }
