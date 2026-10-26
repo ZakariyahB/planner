@@ -222,6 +222,7 @@ private fun GenerateStep(ui: ReviewUi, onGenerate: () -> Unit) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Button(onClick = onGenerate, enabled = !ui.generating) { Text(if (ui.generating) "Planning…" else "Generate and plan") }
+    ui.problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     ui.generated?.let { created ->
         Text(
             if (created == 0) "Nothing new: those tasks already exist. The plan is up to date." else "Added $created task${if (created == 1) "" else "s"} and planned the week.",
