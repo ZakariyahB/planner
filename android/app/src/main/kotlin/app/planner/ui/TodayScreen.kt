@@ -52,6 +52,7 @@ fun TodayScreen(
     val tasks by planVm.todayTasks.collectAsStateWithLifecycle()
     val sync by calVm.sync.collectAsStateWithLifecycle()
     val lastSynced by calVm.lastSyncedAt.collectAsStateWithLifecycle()
+    val calendarToday by calVm.today.collectAsStateWithLifecycle()
     val blocks by planVm.todayBlocks.collectAsStateWithLifecycle()
     val summary by planVm.summary.collectAsStateWithLifecycle()
     val allTasks by planVm.tasksById.collectAsStateWithLifecycle()
@@ -138,6 +139,16 @@ fun TodayScreen(
                 }
             }
         } }
+        if (calendarToday.allDay.isNotEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("All day", style = MaterialTheme.typography.titleMedium)
+                calendarToday.allDay.forEach { event ->
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
+                        Text(event.title, Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Today’s tasks", style = MaterialTheme.typography.titleMedium)

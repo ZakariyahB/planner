@@ -1,5 +1,6 @@
 package app.planner.ai
 
+import app.planner.calendar.EventTiming
 import app.planner.data.TaskRepository
 import app.planner.model.Task
 import app.planner.model.TaskStatus
@@ -72,6 +73,22 @@ class AiReadTools @Inject constructor(
                                     put("block_id", e.id.removePrefix("commitment-").toLongOrNull() ?: 0L)
                                 } else {
                                     put("kind", "calendar")
+                                }
+                            },
+                        )
+                    }
+                },
+            )
+            put(
+                "all_day",
+                buildJsonArray {
+                    view.allDay.forEach { e ->
+                        add(
+                            buildJsonObject {
+                                put("title", e.title)
+                                (e.timing as? EventTiming.AllDay)?.let { t ->
+                                    put("first_day", t.start.toString())
+                                    put("last_day", t.endExclusive.minusDays(1).toString())
                                 }
                             },
                         )
