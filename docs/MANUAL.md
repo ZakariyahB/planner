@@ -67,7 +67,7 @@ If a stretch of days has nothing planned, the tab says so and offers **Replan**.
 - **Priority** and **Module.**
 - **Anchor.** Tie it to a prayer, with minutes before or after, for example "Asr plus 15". The task isn't planned earlier than that.
 
-A task is always one block. It is never split. If it doesn't fit before it is due, it goes to the Sunday catch-up, never to tomorrow. Today tells you when something moved there, or "Doesn't fit this week".
+A task is always one block. It is never split. If it doesn't fit before it is due, it goes to the next catch-up day with room. Every day is a catch-up day to begin with; in **Settings, Day rules** you can pick only some, Sunday for example. Today tells you when something moved, or "Doesn't fit this week".
 
 **Tick, edit, drop.** The checkbox marks it done (and unticks it). Tap the task to edit, or to **Drop** it, which takes it off the plan.
 
@@ -141,7 +141,7 @@ The **Reflect** tab shows the last seven days: planned against done work, sleep 
 
 | Page | What it holds |
 |---|---|
-| Day rules | Wake, work-stops, wind-down and lights-out times; buffers; the size of a packed day; the daily work cap; the Sunday catch-up |
+| Day rules | Wake, work-stops, wind-down and lights-out times; buffers; the size of a packed day; the daily work cap; catch-up days and the weekly catch-up allowance |
 | Weekly template | The things that repeat |
 | Calendars | Connect Google Calendar, sync now, choose which calendars supply commitments |
 | Sleep and Health Connect | Permission, sync, this week's Fajr |

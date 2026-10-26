@@ -142,8 +142,8 @@ fun PlanNotes(summary: PlanSummary, tasks: Map<Long, Task>, onApproveCut: () -> 
         }
         if (summary.overflow.isNotEmpty()) {
             Text(
-                "Moved to Sunday catch-up: " + summary.overflow.joinToString(", ") { it.title } +
-                    if (summary.catchUpExceeded) ". That's more than the 2h you set aside." else "",
+                "Moved to a catch-up day: " + summary.overflow.joinToString(", ") { it.title } +
+                    if (summary.catchUpExceeded) ". That's more than your weekly catch-up allowance." else "",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

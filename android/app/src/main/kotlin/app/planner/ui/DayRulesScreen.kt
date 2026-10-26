@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.scheduler.DayRules
 import app.planner.scheduler.DayRulesCodec
 import app.planner.social.SocialNudges
+import java.time.DayOfWeek
 import java.time.LocalTime
 
 private enum class TimeField(val title: String, val note: String) {
@@ -66,8 +68,8 @@ private val STEPPERS = listOf(
     Stepper("Planned work per day", "Stops the week piling onto Monday", { duration(it.maxTaskMinutesPerDay) }) { r, d ->
         r.copy(maxTaskMinutesPerDay = (r.maxTaskMinutesPerDay + 30 * d).coerceIn(DayRulesCodec.DAILY_CAP_RANGE_MIN))
     },
-    Stepper("Sunday catch-up", "Room for work that didn't fit earlier", { duration(it.sundayCatchUpMin) }) { r, d ->
-        r.copy(sundayCatchUpMin = (r.sundayCatchUpMin + 30 * d).coerceIn(DayRulesCodec.CATCH_UP_RANGE_MIN))
+    Stepper("Catch-up allowance", "Room each week for work that didn't fit on its day", { duration(it.catchUpMin) }) { r, d ->
+        r.copy(catchUpMin = (r.catchUpMin + 30 * d).coerceIn(DayRulesCodec.CATCH_UP_RANGE_MIN))
     },
 )
 
@@ -105,6 +107,26 @@ fun DayRulesScreen(vm: DayRulesViewModel) {
                             Text(stepper.value(rules), Modifier.width(72.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
                             OutlinedButton(onClick = { vm.edit { stepper.step(it, 1) } }) { Text("+") }
                         }
+                    }
+                }
+            }
+        }
+        item {
+            Group("Catch-up days") {
+                Text(
+                    "Work that didn't fit before it was due goes to the next of these days with room.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DayOfWeek.entries.forEach { day ->
+                        val on = day in rules.catchUpDays
+                        FilterChip(
+                            selected = on,
+                            onClick = { vm.edit { it.copy(catchUpDays = if (on) it.catchUpDays - day else it.catchUpDays + day) } },
+                            label = { Text(day.short().take(2), Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
             }

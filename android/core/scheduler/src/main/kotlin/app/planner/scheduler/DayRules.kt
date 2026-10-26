@@ -14,7 +14,10 @@ data class DayRules(
     val prayerBufferMin: Int = 15,
     val packedFixedMinutes: Int = 180,
     val fridayClearFrom: LocalTime = LocalTime.of(17, 0),
-    val sundayCatchUpMin: Int = 120,
+    /** Weekly allowance for work that missed its day; more overflow than this is flagged. */
+    val catchUpMin: Int = 120,
+    /** Days that take work which didn't fit before it was due. Any day by default, so it lands as soon as there is room. */
+    val catchUpDays: Set<DayOfWeek> = DayOfWeek.entries.toSet(),
     /** Cap on planned task minutes per day, so earliest-deadline-first doesn't pile the week onto Monday. */
     val maxTaskMinutesPerDay: Int = 360,
 ) {

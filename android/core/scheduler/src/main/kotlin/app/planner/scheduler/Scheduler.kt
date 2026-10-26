@@ -4,7 +4,6 @@ import app.planner.calendar.FixedEvent
 import app.planner.model.Prayer
 import app.planner.model.Task
 import app.planner.readiness.ReadinessBand
-import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -32,13 +31,13 @@ data class DayPlan(val date: LocalDate, val blocks: List<Block>, val unplaced: L
 
 data class WeekPlan(
     val blocks: List<Block>,
-    /** Tasks that missed their due day and were moved to the Sunday catch-up (placed there or not). */
+    /** Tasks that missed their due day and were moved to a later catch-up day (placed there or not). */
     val overflow: List<Task>,
-    /** Tasks that fit nowhere in the range, including overflow that did not fit on Sunday either. */
+    /** Tasks that fit nowhere in the range, including overflow that found no room on a catch-up day either. */
     val unscheduled: List<Task>,
     /** Tasks the readiness band suggests dropping from the first day; needs approval unless already applied. */
     val loadCut: List<Task>,
-    /** More overflow than the Sunday catch-up allowance. */
+    /** More overflow than the weekly catch-up allowance. */
     val catchUpExceeded: Boolean,
     /** Tasks whose chosen start time couldn't be honoured; they were planned normally instead. */
     val pinConflicts: List<PinConflict> = emptyList(),
@@ -135,7 +134,8 @@ class Scheduler(val rules: DayRules = DayRules()) {
 
     /**
      * Plans [days] in order (the first is "today"). A task due on or before a day that does not fit
-     * moves to the Sunday catch-up, never to the next day. [band] applies to the first day only.
+     * waits for the next catch-up day in [DayRules.catchUpDays] (by default the next day with room).
+     * [band] applies to the first day only.
      * With [applyLoadCut] the suggested cut is carried out; otherwise it is only reported in [WeekPlan.loadCut].
      */
     fun planWeek(
@@ -151,7 +151,6 @@ class Scheduler(val rules: DayRules = DayRules()) {
         val everOverflowed = mutableListOf<Task>()
         val placed = mutableListOf<Block>()
         var loadCut = emptyList<Task>()
-        val catchUpDate = days.firstOrNull { it.date.dayOfWeek == DayOfWeek.SUNDAY }?.date
 
         val pinned = mutableMapOf<LocalDate, MutableList<Block>>()
         val pinConflicts = mutableListOf<PinConflict>()
@@ -160,7 +159,7 @@ class Scheduler(val rules: DayRules = DayRules()) {
 
         days.forEachIndexed { index, base ->
             val ctx = base.copy(existing = base.existing + pinned[base.date].orEmpty())
-            val isCatchUp = ctx.date == catchUpDate
+            val isCatchUp = ctx.date.dayOfWeek in rules.catchUpDays
             val isFirst = index == 0 && band != ReadinessBand.GREEN
             var candidates = (if (isCatchUp) waiting + remaining else remaining).filter { availableOn(it, ctx) }
 
@@ -179,7 +178,8 @@ class Scheduler(val rules: DayRules = DayRules()) {
             remaining.removeAll { it.id in placedIds }
             waiting.removeAll { it.id in placedIds }
 
-            if (!isCatchUp && catchUpDate != null) {
+            val catchUpAhead = days.drop(index + 1).any { it.date.dayOfWeek in rules.catchUpDays }
+            if (catchUpAhead) {
                 result.unplaced
                     .filter { t -> dueDate(t, ctx.zone)?.let { it <= ctx.date } == true }
                     .forEach { t ->
@@ -196,7 +196,7 @@ class Scheduler(val rules: DayRules = DayRules()) {
             overflow = everOverflowed,
             unscheduled = remaining + waiting,
             loadCut = loadCut,
-            catchUpExceeded = everOverflowed.sumOf { it.estMin } > rules.sundayCatchUpMin,
+            catchUpExceeded = everOverflowed.sumOf { it.estMin } > rules.catchUpMin,
             pinConflicts = pinConflicts,
         )
     }

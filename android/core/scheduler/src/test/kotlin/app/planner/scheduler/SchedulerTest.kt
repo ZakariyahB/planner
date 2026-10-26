@@ -53,12 +53,12 @@ class SchedulerTest {
     }
 
     @Test
-    fun `Halaqa running an hour over pushes the CW remainder to Sunday and OS still fits before 21 00`() {
+    fun `with Sunday as the only catch-up day, Halaqa running an hour over pushes the CW to Sunday and OS still fits before 21 00`() {
         val days = listOf(
             wednesday(halaqaEnd = "17:30"),
             ctx("2026-10-29"), ctx("2026-10-30"), ctx("2026-10-31"), ctx("2026-11-01"),
         )
-        val week = scheduler.planWeek(days, wedTasks(), instant("2026-10-28", "08:00"))
+        val week = sundayOnly.planWeek(days, wedTasks(), instant("2026-10-28", "08:00"))
 
         val os = week.blocks.single { it.taskId == 1L }
         assertEquals(date("2026-10-28"), os.date)
@@ -146,12 +146,42 @@ class SchedulerTest {
     }
 
     @Test
-    fun `overflow never lands on the next day`() {
-        val big = task(1, "Too long for Monday", 100, due = "2026-10-26")
-        val locked = Block(id = 9, taskId = 99, date = date("2026-10-26"), start = time("08:45"), end = time("20:45"), locked = true)
-        val days = listOf(ctx("2026-10-26").copy(existing = listOf(locked)), ctx("2026-10-27"), ctx("2026-11-01"))
-        val week = scheduler.planWeek(days, listOf(big), now)
+    fun `with Sunday as the only catch-up day, overflow skips the days before it`() {
+        val week = sundayOnly.planWeek(mondayFullThenFree(), listOf(tooLongForMonday()), now)
         assertEquals(date("2026-11-01"), week.blocks.single().date)
+    }
+
+    @Test
+    fun `by default any day is a catch-up day, so overflow goes to the next day with room`() {
+        val week = scheduler.planWeek(mondayFullThenFree(), listOf(tooLongForMonday()), now)
+        assertEquals(date("2026-10-27"), week.blocks.single().date)
+        assertEquals(listOf(1L), week.overflow.map { it.id })
+    }
+
+    @Test
+    fun `overflow waits for the next chosen catch-up day`() {
+        val thursdayAndSunday = Scheduler(DayRules(catchUpDays = setOf(DayOfWeek.THURSDAY, DayOfWeek.SUNDAY)))
+        val days = mondayFullThenFree().dropLast(1) + listOf(ctx("2026-10-28"), ctx("2026-10-29"), ctx("2026-11-01"))
+        val week = thursdayAndSunday.planWeek(days, listOf(tooLongForMonday()), now)
+        assertEquals(date("2026-10-29"), week.blocks.single().date)
+    }
+
+    @Test
+    fun `overflow that misses a catch-up day waits for the next one`() {
+        val thursdayAndSunday = Scheduler(DayRules(catchUpDays = setOf(DayOfWeek.THURSDAY, DayOfWeek.SUNDAY)))
+        val fullThursday = ctx("2026-10-29").copy(existing = listOf(Block(id = 8, taskId = 98, date = date("2026-10-29"), start = time("08:45"), end = time("20:45"), locked = true)))
+        val days = listOf(mondayFullThenFree().first(), ctx("2026-10-27"), fullThursday, ctx("2026-10-30"), ctx("2026-11-01"))
+        val week = thursdayAndSunday.planWeek(days, listOf(tooLongForMonday()), now)
+        assertEquals(date("2026-11-01"), week.blocks.single().date)
+    }
+
+    private val sundayOnly = Scheduler(DayRules(catchUpDays = setOf(DayOfWeek.SUNDAY)))
+
+    private fun tooLongForMonday() = task(1, "Too long for Monday", 100, due = "2026-10-26")
+
+    private fun mondayFullThenFree(): List<DayContext> {
+        val locked = Block(id = 9, taskId = 99, date = date("2026-10-26"), start = time("08:45"), end = time("20:45"), locked = true)
+        return listOf(ctx("2026-10-26").copy(existing = listOf(locked)), ctx("2026-10-27"), ctx("2026-11-01"))
     }
 
     @Test

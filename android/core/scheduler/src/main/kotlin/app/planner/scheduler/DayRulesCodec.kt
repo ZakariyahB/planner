@@ -2,12 +2,14 @@ package app.planner.scheduler
 
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
+import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeParseException
 
@@ -30,7 +32,8 @@ object DayRulesCodec {
         put("prayerBufferMin", rules.prayerBufferMin)
         put("packedFixedMinutes", rules.packedFixedMinutes)
         put("fridayClearFrom", rules.fridayClearFrom.toString())
-        put("sundayCatchUpMin", rules.sundayCatchUpMin)
+        put("catchUpMin", rules.catchUpMin)
+        put("catchUpDays", JsonArray(rules.catchUpDays.sorted().map { JsonPrimitive(it.name) }))
         put("maxTaskMinutesPerDay", rules.maxTaskMinutesPerDay)
     }.toString()
 
@@ -51,6 +54,11 @@ object DayRulesCodec {
         fun number(key: String, default: Int, range: IntRange): Int =
             (json[key] as? JsonPrimitive)?.intOrNull?.takeIf { it in range } ?: default
 
+        fun days(key: String, default: Set<DayOfWeek>): Set<DayOfWeek> {
+            val names = (json[key] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull } ?: return default
+            return names.map { name -> DayOfWeek.entries.firstOrNull { it.name == name } ?: return default }.toSet()
+        }
+
         val rules = try {
             DayRules(
                 wake = time("wake", defaults.wake),
@@ -62,7 +70,9 @@ object DayRulesCodec {
                 prayerBufferMin = number("prayerBufferMin", defaults.prayerBufferMin, BUFFER_RANGE_MIN),
                 packedFixedMinutes = number("packedFixedMinutes", defaults.packedFixedMinutes, PACKED_RANGE_MIN),
                 fridayClearFrom = time("fridayClearFrom", defaults.fridayClearFrom),
-                sundayCatchUpMin = number("sundayCatchUpMin", defaults.sundayCatchUpMin, CATCH_UP_RANGE_MIN),
+                // Saved before catch-up could be any day, the allowance was called the Sunday catch-up.
+                catchUpMin = number("catchUpMin", number("sundayCatchUpMin", defaults.catchUpMin, CATCH_UP_RANGE_MIN), CATCH_UP_RANGE_MIN),
+                catchUpDays = days("catchUpDays", defaults.catchUpDays),
                 maxTaskMinutesPerDay = number("maxTaskMinutesPerDay", defaults.maxTaskMinutesPerDay, DAILY_CAP_RANGE_MIN),
             )
         } catch (e: IllegalArgumentException) {
@@ -80,6 +90,7 @@ object DayRulesCodec {
         if (rules.blockBufferMin !in BUFFER_RANGE_MIN || rules.prayerBufferMin !in BUFFER_RANGE_MIN) add("Buffers can be 0 to 60 minutes.")
         if (rules.packedFixedMinutes !in PACKED_RANGE_MIN) add("A packed day starts at 1 to 10 hours of fixed events.")
         if (rules.maxTaskMinutesPerDay !in DAILY_CAP_RANGE_MIN) add("Planned work per day can be 1 to 12 hours.")
-        if (rules.sundayCatchUpMin !in CATCH_UP_RANGE_MIN) add("The Sunday catch-up can be 0 to 8 hours.")
+        if (rules.catchUpMin !in CATCH_UP_RANGE_MIN) add("The catch-up allowance can be 0 to 8 hours.")
+        if (rules.catchUpDays.isEmpty()) add("Choose at least one catch-up day.")
     }
 }

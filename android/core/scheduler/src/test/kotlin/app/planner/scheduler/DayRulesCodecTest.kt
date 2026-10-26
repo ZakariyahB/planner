@@ -1,5 +1,6 @@
 package app.planner.scheduler
 
+import java.time.DayOfWeek
 import java.time.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,10 +24,23 @@ class DayRulesCodecTest {
             prayerBufferMin = 20,
             packedFixedMinutes = 240,
             fridayClearFrom = LocalTime.of(16, 0),
-            sundayCatchUpMin = 90,
+            catchUpMin = 90,
+            catchUpDays = setOf(DayOfWeek.WEDNESDAY, DayOfWeek.SUNDAY),
             maxTaskMinutesPerDay = 300,
         )
         assertEquals(rules, DayRulesCodec.decode(DayRulesCodec.encode(rules)))
+    }
+
+    @Test
+    fun `rules saved before catch-up days existed keep their allowance and catch up on any day`() {
+        val rules = DayRulesCodec.decode("""{"sundayCatchUpMin":90}""")
+        assertEquals(90, rules.catchUpMin)
+        assertEquals(DayOfWeek.entries.toSet(), rules.catchUpDays)
+    }
+
+    @Test
+    fun `catch-up needs at least one day`() {
+        assertTrue(DayRulesCodec.problems(DayRules(catchUpDays = emptySet())).isNotEmpty())
     }
 
     @Test

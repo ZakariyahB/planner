@@ -54,7 +54,7 @@ class PromptFilesTest {
     @Test
     fun `the system prompt carries the rules the app relies on`() {
         val prompt = File(promptDir, "system.md").readText()
-        for (phrase in listOf("propose_changes", "apply_changes", "not medical advice", "Undo", "Sunday")) {
+        for (phrase in listOf("propose_changes", "apply_changes", "not medical advice", "Undo", "catch-up day")) {
             assertTrue(phrase in prompt, "system.md should mention \"$phrase\"")
         }
         assertTrue(prompt.length < 8_000, "keep the system prompt short: it is sent on every call")
