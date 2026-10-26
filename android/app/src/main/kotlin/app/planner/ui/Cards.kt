@@ -25,10 +25,12 @@ import app.planner.plan.PlanSummary
 import app.planner.readiness.Readiness
 import app.planner.readiness.ReadinessBand
 import app.planner.readiness.ReadinessState
+import app.planner.readiness.phases
 import app.planner.sleep.HealthStatus
 import app.planner.sleep.ReadinessView
 import app.planner.ui.theme.LocalStatusColors
 import java.time.LocalTime
+import java.time.ZoneId
 
 private fun formatDuration(minutes: Int): String = "${minutes / 60}h ${"%02d".format(minutes % 60)}m"
 
@@ -76,6 +78,12 @@ fun ReadinessCard(
                     else -> Unit
                 }
             }
+        }
+        view?.night?.let { night ->
+            val zone = ZoneId.systemDefault()
+            val phases = night.phases(zone).joinToString(" · ") { it.label() }
+            val up = if (view?.state is ReadinessState.Final) " · up at ${timeFormat.format(night.lastEnd.atZone(zone))}" else ""
+            Text(phases + up, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         note?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         view?.forecast?.let { f ->

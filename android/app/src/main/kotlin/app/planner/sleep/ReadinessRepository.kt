@@ -30,6 +30,8 @@ data class ReadinessView(
     /** True the first time today's score became final; the plan should be rebuilt for the new load. */
     val newlyFinal: Boolean,
     val forecast: Forecast?,
+    /** Last night as asleep and awake periods, once any sleep is on record. */
+    val night: SleepNight?,
 )
 
 @Singleton
@@ -59,7 +61,7 @@ class ReadinessRepository @Inject constructor(
             }
             computed to (computed is ReadinessState.Final)
         }
-        return ReadinessView(state, newlyFinal, forecast(nights, today, doneRatio = doneRatio(today)))
+        return ReadinessView(state, newlyFinal, forecast(nights, today, doneRatio = doneRatio(today)), nights.firstOrNull { it.date == today })
     }
 
     /** The band that sets today's load, once the night is over; null while provisional or waiting. */
