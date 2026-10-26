@@ -1,7 +1,9 @@
 package app.planner.routines
 
+import app.planner.calendar.FixedEvent
 import app.planner.scheduler.DayRules
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -53,6 +55,20 @@ object RoutineSchedule {
             if (at > now) return at
         }
         error("no trigger for $routine within $LOOKAHEAD_DAYS days of $now")
+    }
+
+    /**
+     * Minutes of fixed events on [date], clipped to that day, as the scheduler counts them when it decides
+     * whether the day is packed (overlapping events are added, not merged).
+     */
+    fun fixedMinutesOn(date: LocalDate, zone: ZoneId, events: List<FixedEvent>): Int {
+        val dayStart = date.atStartOfDay(zone).toInstant()
+        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant()
+        return events.sumOf { e ->
+            val from = maxOf(e.start, dayStart)
+            val to = minOf(e.end, dayEnd)
+            if (to > from) Duration.between(from, to).toMinutes().toInt() else 0
+        }
     }
 
     fun nextAll(
