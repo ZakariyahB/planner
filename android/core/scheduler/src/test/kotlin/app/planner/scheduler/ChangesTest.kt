@@ -85,10 +85,21 @@ class ChangesTest {
     }
 
     @Test
-    fun `locked blocks can only be moved by the user`() {
+    fun `a locked block cannot be moved or resized by anyone until it is unlocked`() {
         val locked = state.copy(blocks = listOf(os.copy(locked = true), ps, cw))
-        assertTrue(ViolationKind.LOCKED in kinds(scheduler.validate(move(1, "08:50", "10:05", actor = Actor.AI), locked)))
-        assertTrue(scheduler.validate(move(1, "08:50", "10:05", actor = Actor.USER), locked).ok)
+        for (actor in listOf(Actor.USER, Actor.AI, Actor.SCHEDULER)) {
+            val moved = scheduler.validate(move(1, "08:50", "10:05", actor = actor), locked)
+            assertTrue(ViolationKind.LOCKED in kinds(moved), "move by $actor")
+            val resized = scheduler.validate(move(1, "08:45", "10:00", actor = actor), locked)
+            assertTrue(ViolationKind.LOCKED in kinds(resized), "resize by $actor")
+        }
+        assertTrue("Unlock" in scheduler.validate(move(1, "08:50", "10:05"), locked).violations.first { it.kind == ViolationKind.LOCKED }.message)
+    }
+
+    @Test
+    fun `an unlocked block can be moved and resized`() {
+        assertTrue(scheduler.validate(move(1, "08:50", "10:05"), state).ok)
+        assertTrue(scheduler.validate(move(1, "08:45", "10:00"), state).ok)
     }
 
     @Test
@@ -110,12 +121,12 @@ class ChangesTest {
     }
 
     @Test
-    fun `a user move locks the block and apply then undo restores everything`() {
+    fun `moving a block does not lock it, and apply then undo restores everything`() {
         val cs = move(3, "18:30", "21:30")
         val applied = apply(blocks, cs)
         val moved = applied.blocks.single { it.id == 3L }
         assertEquals(time("18:30"), moved.start)
-        assertTrue(moved.locked)
+        assertFalse(moved.locked)
         assertEquals(BlockOrigin.USER, moved.origin)
 
         val restored = undo(applied.blocks, applied.diffs)

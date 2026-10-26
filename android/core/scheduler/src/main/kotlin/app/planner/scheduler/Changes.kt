@@ -58,8 +58,9 @@ fun Scheduler.validate(changeSet: ChangeSet, state: PlanState): Validation {
                     violations += Violation(op.blockId, ViolationKind.UNKNOWN_BLOCK, "That block no longer exists")
                     continue
                 }
-                if (block.locked && changeSet.actor != Actor.USER) {
-                    violations += Violation(block.id, ViolationKind.LOCKED, "That block is locked")
+                if (block.locked) {
+                    violations += Violation(block.id, ViolationKind.LOCKED, "That block is locked. Unlock it to move it")
+                    continue
                 }
                 if (op.end <= op.start || op.end.toMinuteOfDay() - op.start.toMinuteOfDay() < MIN_BLOCK_MIN) {
                     violations += Violation(block.id, ViolationKind.TOO_SHORT, "A block must be at least $MIN_BLOCK_MIN minutes")
@@ -149,8 +150,8 @@ private fun sizeOf(changeSet: ChangeSet, byId: Map<Long, Block>): ChangeSize {
 }
 
 /**
- * Applies a change that [validate] accepted. A block the user moves becomes locked and user-owned,
- * so the scheduler plans around it; an AI move keeps the block unlocked. Returns the diffs for the change log.
+ * Applies a change that [validate] accepted. Locking is only ever done on purpose, so a moved block keeps
+ * its lock state; a user move marks it user-placed. Returns the diffs for the change log.
  */
 fun apply(blocks: List<Block>, changeSet: ChangeSet): AppliedChange {
     val byId = blocks.associateBy { it.id }
@@ -164,7 +165,7 @@ fun apply(blocks: List<Block>, changeSet: ChangeSet): AppliedChange {
                     date = op.date,
                     start = op.start,
                     end = op.end,
-                    locked = before.locked || changeSet.actor == Actor.USER,
+                    locked = before.locked,
                     origin = when (changeSet.actor) {
                         Actor.USER -> BlockOrigin.USER
                         Actor.AI -> BlockOrigin.AI
