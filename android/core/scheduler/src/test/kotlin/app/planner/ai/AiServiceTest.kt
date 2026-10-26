@@ -61,6 +61,13 @@ class AiServiceTest {
     }
 
     @Test
+    fun `the signed-in address is read from the token's payload`() {
+        assertEquals("me@example.com", Jwt.email(token("""{"email":"me@example.com","exp":1}""")))
+        assertNull(Jwt.email(token("""{"exp":1}""")))
+        assertNull(Jwt.email("garbage"))
+    }
+
+    @Test
     fun `a cached token is reused until shortly before it expires`() {
         val t = token("""{"exp":1000}""")
         assertEquals(true, Jwt.stillValid(t, nowSeconds = 800, marginSeconds = 120))

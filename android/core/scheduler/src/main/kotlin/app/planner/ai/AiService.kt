@@ -60,11 +60,15 @@ data class UsageReport(val model: String, val usage: TokenUsage, val costGbp: Do
 
 /** Reads the expiry of a Google ID token so it can be reused until just before it runs out. */
 object Jwt {
-    fun expirySeconds(token: String): Long? {
+    fun expirySeconds(token: String): Long? = claim(token, "exp")?.longOrNull
+
+    fun email(token: String): String? = claim(token, "email")?.takeIf { it.isString }?.content
+
+    private fun claim(token: String, name: String): JsonPrimitive? {
         val payload = token.split(".").getOrNull(1) ?: return null
         return try {
             val json = String(Base64.getUrlDecoder().decode(payload))
-            (Json.parseToJsonElement(json) as? JsonObject)?.get("exp")?.let { (it as? JsonPrimitive)?.longOrNull }
+            (Json.parseToJsonElement(json) as? JsonObject)?.get(name) as? JsonPrimitive
         } catch (e: IllegalArgumentException) {
             null
         } catch (e: SerializationException) {
