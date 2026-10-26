@@ -1,4 +1,5 @@
 import { AuthError, verifyIdToken, type AuthConfig } from "./auth";
+import { forwardMessages, json } from "./proxy";
 
 export interface Env {
   ALLOWED_EMAIL: string;
@@ -6,10 +7,16 @@ export interface Env {
   MONTHLY_CAP_GBP: string;
   USAGE: KVNamespace;
   ANTHROPIC_API_KEY: string;
+  /** Optional overrides for the model used for chat/replans and for scheduled runs. */
+  MODEL_CHAT?: string;
+  MODEL_SCHEDULED?: string;
 }
 
 export interface Deps {
   auth?: Pick<AuthConfig, "fetchJwks" | "nowSeconds">;
+  /** Replaces the call to Anthropic; used by tests. */
+  upstream?: (req: Request) => Promise<Response>;
+  now?: () => Date;
 }
 
 export async function handle(req: Request, env: Env, deps: Deps = {}): Promise<Response> {
@@ -32,18 +39,10 @@ export async function handle(req: Request, env: Env, deps: Deps = {}): Promise<R
       if (e instanceof AuthError) return json({ error: e.message }, 401);
       throw e;
     }
-    // Spend cap, model routing and forwarding to Anthropic land in M4.
-    return json({ error: "not implemented" }, 501);
+    return forwardMessages(req, env, deps);
   }
 
   return new Response("not found", { status: 404 });
-}
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 export default {
