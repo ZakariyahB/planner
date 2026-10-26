@@ -29,6 +29,8 @@ class TaskRepository @Inject constructor(
 
     suspend fun save(task: Task) = dao.upsert(task.toEntity())
 
+    suspend fun saveAll(tasks: List<Task>) = dao.upsertAll(tasks.map { it.toEntity() })
+
     suspend fun setStatus(id: Long, status: TaskStatus) = dao.setStatus(id, status.name)
 
     /** Creates this week's (or [weeksAhead] weeks ahead) template tasks; safe to call repeatedly. Returns how many were new. */

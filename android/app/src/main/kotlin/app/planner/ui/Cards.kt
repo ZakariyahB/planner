@@ -139,6 +139,12 @@ fun PlanNotes(summary: PlanSummary, tasks: Map<Long, Task>, onApproveCut: () -> 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        summary.pinConflicts.forEach { c ->
+            Text(
+                "Couldn't put ${c.task.title} at ${c.task.startAt?.let { timeFormat.format(it) }}: ${c.reason}. It was planned at the next free time.",
+                color = LocalStatusColors.current.warning,
+            )
+        }
         val missing = summary.unscheduled.filter { it.id in tasks }
         if (missing.isNotEmpty()) {
             Text("Doesn't fit this week: " + missing.joinToString(", ") { it.title }, color = LocalStatusColors.current.warning)

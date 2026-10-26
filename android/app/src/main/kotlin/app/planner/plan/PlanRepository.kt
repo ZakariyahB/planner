@@ -29,6 +29,7 @@ import app.planner.scheduler.BlockDiff
 import app.planner.scheduler.ChangeSet
 import app.planner.scheduler.DayContext
 import app.planner.scheduler.Op
+import app.planner.scheduler.PinConflict
 import app.planner.scheduler.PlanState
 import app.planner.scheduler.Scheduler
 import app.planner.scheduler.apply
@@ -62,6 +63,8 @@ data class PlanSummary(
     val overflow: List<Task> = emptyList(),
     val unscheduled: List<Task> = emptyList(),
     val catchUpExceeded: Boolean = false,
+    /** Tasks whose chosen start time couldn't be used, with why. */
+    val pinConflicts: List<PinConflict> = emptyList(),
 )
 
 sealed interface MoveResult {
@@ -91,6 +94,9 @@ class PlanRepository @Inject constructor(
     /** Result of the last Google push, for display; null when fine or not connected. */
     private val _syncProblem = MutableStateFlow<String?>(null)
     val syncProblem: StateFlow<String?> = _syncProblem
+
+    /** Removes a task's blocks, so an edited task (new time or day) is placed afresh by the next replan. */
+    suspend fun forgetBlocks(taskId: Long) = blocks.deleteForTask(taskId)
 
     private data class CalSettings(
         val calendars: List<CalendarInfo>,
@@ -170,6 +176,7 @@ class PlanRepository @Inject constructor(
             overflow = week.overflow,
             unscheduled = week.unscheduled,
             catchUpExceeded = week.catchUpExceeded,
+            pinConflicts = week.pinConflicts,
         )
         _summary.value = summary
         pushToGoogle()

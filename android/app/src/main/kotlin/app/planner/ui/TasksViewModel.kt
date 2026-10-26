@@ -48,6 +48,7 @@ class TasksViewModel @Inject constructor(
     val generated: StateFlow<String?> = _generated
 
     fun save(task: Task) = viewModelScope.launch {
+        if (task.id != 0L) plan.forgetBlocks(task.id) // a changed time or day must be placed afresh
         tasks.save(task)
         plan.replan()
     }

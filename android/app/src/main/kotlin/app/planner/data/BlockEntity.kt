@@ -77,4 +77,7 @@ interface BlockDao {
 
     @Query("DELETE FROM blocks WHERE id IN (:ids)")
     suspend fun delete(ids: List<Long>)
+
+    @Query("DELETE FROM blocks WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: Long)
 }
