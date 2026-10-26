@@ -22,16 +22,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.planner.BuildConfig
+import app.planner.ai.AiSpendRepository
 import app.planner.sleep.HealthStatus
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
     calVm: CalendarViewModel,
     readinessVm: ReadinessViewModel,
     planVm: PlanViewModel,
+    chatVm: ChatViewModel,
     onConnect: () -> Unit,
     onAllowHealth: () -> Unit,
     onOpenTemplate: () -> Unit,
@@ -43,6 +48,8 @@ fun SettingsScreen(
     val health by readinessVm.health.collectAsStateWithLifecycle()
     val fajr by readinessVm.fajrThisWeek.collectAsStateWithLifecycle()
     val problem by planVm.syncProblem.collectAsStateWithLifecycle()
+    val spend by chatVm.spendGbp.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var pickingFajr by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -123,6 +130,25 @@ fun SettingsScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Fajr this week: ${fajr?.let { timeFormat.format(it) } ?: "not set"}")
                 OutlinedButton(onClick = { pickingFajr = true }) { Text(if (fajr == null) "Set" else "Change") }
+            }
+        }
+
+        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+        item { SectionTitle("Assistant") }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (BuildConfig.WORKER_URL.isBlank() || BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
+                    Text(
+                        "Not set up yet: add WORKER_URL and GOOGLE_WEB_CLIENT_ID to android/local.properties and rebuild.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "AI spend this month: " + String.format(Locale.UK, "£%.2f of £%.0f", spend, AiSpendRepository.CAP_GBP),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = { chatVm.signIn(context) }) { Text("Sign in for the assistant") }
+                }
             }
         }
 

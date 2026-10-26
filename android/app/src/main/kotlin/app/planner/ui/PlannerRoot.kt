@@ -6,6 +6,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -13,6 +14,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,19 +30,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.sleep.SleepRepository
 
-private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), SETTINGS("Settings") }
+private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), ASK("Ask") }
 
 /** Null [task] means "add a new one". */
 private data class EditorTarget(val task: Task?)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerRoot() {
     val tasksVm: TasksViewModel = hiltViewModel()
     val calVm: CalendarViewModel = hiltViewModel()
     val planVm: PlanViewModel = hiltViewModel()
     val readinessVm: ReadinessViewModel = hiltViewModel()
+    val chatVm: ChatViewModel = hiltViewModel()
 
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var showTemplate by rememberSaveable { mutableStateOf(false) }
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
     val snackbar = remember { SnackbarHostState() }
@@ -76,29 +82,53 @@ fun PlannerRoot() {
         }
     }
 
-    BackHandler(enabled = showTemplate) { showTemplate = false }
+    // Changes the assistant made for the user get the same Undo snackbar.
+    LaunchedEffect(Unit) {
+        chatVm.announcements.collect { m ->
+            val result = snackbar.showSnackbar(m.text, actionLabel = if (m.undoChangeId != null) "Undo" else null)
+            if (result == SnackbarResult.ActionPerformed) m.undoChangeId?.let(planVm::undo)
+        }
+    }
+
+    BackHandler(enabled = showSettings) {
+        if (showTemplate) showTemplate = false else showSettings = false
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
+        topBar = {
+            TopAppBar(
+                title = { Text(if (showSettings) "Settings" else "Planner") },
+                navigationIcon = { if (showSettings) TextButton(onClick = { if (showTemplate) showTemplate = false else showSettings = false }) { Text("Back") } },
+                actions = { if (!showSettings) TextButton(onClick = { showSettings = true }) { Text("Settings") } },
+            )
+        },
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { t ->
-                    NavigationBarItem(selected = tab == t, onClick = { tab = t; showTemplate = false }, icon = {}, label = { Text(t.label) }, alwaysShowLabel = true)
+                    NavigationBarItem(
+                        selected = !showSettings && tab == t,
+                        onClick = { tab = t; showSettings = false; showTemplate = false },
+                        icon = {},
+                        label = { Text(t.label) },
+                        alwaysShowLabel = true,
+                    )
                 }
             }
         },
     ) { padding ->
         Box(Modifier.padding(padding)) {
-            when (tab) {
+            if (showSettings) {
+                if (showTemplate) TemplateScreen(tasksVm, onBack = { showTemplate = false })
+                else SettingsScreen(calVm, readinessVm, planVm, chatVm, onConnect, onAllowHealth, onOpenTemplate = { showTemplate = true })
+            } else when (tab) {
                 Tab.TODAY -> TodayScreen(
                     tasksVm, calVm, planVm, readinessVm, onConnect, onAllowHealth,
                     onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) },
                 )
                 Tab.CALENDAR -> CalendarScreen(planVm)
                 Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) })
-                Tab.SETTINGS ->
-                    if (showTemplate) TemplateScreen(tasksVm, onBack = { showTemplate = false })
-                    else SettingsScreen(calVm, readinessVm, planVm, onConnect, onAllowHealth, onOpenTemplate = { showTemplate = true })
+                Tab.ASK -> ChatScreen(chatVm)
             }
         }
     }
