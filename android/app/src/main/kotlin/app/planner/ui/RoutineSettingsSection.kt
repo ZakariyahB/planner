@@ -18,6 +18,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
+import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -34,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.routines.AlarmClock
 import app.planner.routines.Routine
 import app.planner.routines.info
+import app.planner.sleep.SleepRepository
 
 /** Settings → Routines: which notifications to get, and whether the system lets them through. */
 @Composable
@@ -49,6 +53,9 @@ fun RoutineSettingsSection(vm: RoutinePrefsViewModel = hiltViewModel()) {
     }
     val notificationsOn = remember(refresh) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
     val exactAlarms = remember(refresh) { AlarmClock.canScheduleExact(context) }
+    var backgroundSleep by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(refresh) { backgroundSleep = vm.backgroundSleepGranted() }
+    val healthBackground = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.markPromptSeen()
         refresh++
@@ -90,6 +97,16 @@ fun RoutineSettingsSection(vm: RoutinePrefsViewModel = hiltViewModel()) {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             }) { Text("Allow exact alarms") }
+        }
+        if (backgroundSleep == false) {
+            Text(
+                "Health Connect hasn't allowed Planner to read sleep while the app is closed, so the back-to-bed notice " +
+                    "and the morning brief can only use sleep from the last time you opened the app.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = { healthBackground.launch(setOf(SleepRepository.BACKGROUND_PERMISSION)) }) {
+                Text("Allow background sleep reading")
+            }
         }
         Routine.entries.forEach { routine ->
             val info = routine.info

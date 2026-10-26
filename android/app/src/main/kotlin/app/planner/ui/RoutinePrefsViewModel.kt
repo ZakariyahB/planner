@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.planner.routines.Routine
 import app.planner.routines.RoutineScheduler
 import app.planner.routines.RoutineSettings
+import app.planner.sleep.SleepRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 class RoutinePrefsViewModel @Inject constructor(
     private val routines: RoutineSettings,
     private val scheduler: RoutineScheduler,
+    private val sleep: SleepRepository,
 ) : ViewModel() {
     val enabled: StateFlow<Map<Routine, Boolean>> =
         combine(Routine.entries.map { r -> routines.observeEnabled(r).map { r to it } }) { pairs -> pairs.toMap() }
@@ -35,6 +37,8 @@ class RoutinePrefsViewModel @Inject constructor(
 
     /** Sets every alarm again, e.g. after the user allows exact alarms. */
     fun reschedule() = viewModelScope.launch { scheduler.rescheduleAll() }
+
+    suspend fun backgroundSleepGranted(): Boolean? = sleep.backgroundReadGranted()
 
     fun markPromptSeen() = viewModelScope.launch { routines.markNotificationPromptSeen() }
 }
