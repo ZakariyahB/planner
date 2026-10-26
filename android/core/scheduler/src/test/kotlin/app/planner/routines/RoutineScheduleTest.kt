@@ -1,5 +1,6 @@
 package app.planner.routines
 
+import app.planner.calendar.FixedEvent
 import app.planner.scheduler.DayRules
 import java.time.Instant
 import java.time.LocalDate
@@ -135,5 +136,42 @@ class RoutineScheduleTest {
     fun `only timed routines can be scheduled`() {
         assertFailsWith<IllegalArgumentException> { next(Routine.MORNING_BRIEF, at("2026-10-26", "10:00")) }
         assertFailsWith<IllegalArgumentException> { next(Routine.PROVISIONAL_READINESS, at("2026-10-26", "10:00")) }
+    }
+
+    // Fixed minutes of a day, which decide whether it is packed.
+
+    private fun event(from: Instant, to: Instant) = FixedEvent("e", "main", "e", from, to)
+
+    private val wednesday = LocalDate.parse("2026-10-28")
+
+    @Test
+    fun `fixed minutes add up the events of the day`() {
+        val events = listOf(
+            event(at("2026-10-28", "10:15"), at("2026-10-28", "12:45")), // 150
+            event(at("2026-10-28", "14:00"), at("2026-10-28", "16:30")), // 150
+        )
+        assertEquals(300, RoutineSchedule.fixedMinutesOn(wednesday, zone, events))
+    }
+
+    @Test
+    fun `fixed minutes only count the part of an event that is on the day`() {
+        val events = listOf(
+            event(at("2026-10-27", "22:00"), at("2026-10-28", "01:00")), // 60 on Wednesday
+            event(at("2026-10-28", "23:00"), at("2026-10-29", "02:00")), // 60 on Wednesday
+            event(at("2026-10-29", "09:00"), at("2026-10-29", "10:00")), // another day
+        )
+        assertEquals(120, RoutineSchedule.fixedMinutesOn(wednesday, zone, events))
+    }
+
+    @Test
+    fun `a day with no events has no fixed minutes`() {
+        assertEquals(0, RoutineSchedule.fixedMinutesOn(wednesday, zone, emptyList()))
+    }
+
+    @Test
+    fun `three hours of events make the day packed for the work stop`() {
+        val events = listOf(event(at("2026-10-28", "09:00"), at("2026-10-28", "12:00")))
+        val packed = { d: LocalDate -> RoutineSchedule.fixedMinutesOn(d, zone, events) }
+        assertEquals(at("2026-10-28", "22:00"), next(Routine.WORK_STOPS, at("2026-10-28", "08:00"), packed))
     }
 }
