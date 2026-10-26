@@ -30,7 +30,7 @@ import app.planner.social.SocialSettingsSection
 
 /** Where Settings can be. HOME is the list; the rest are the pages it leads to. */
 enum class SettingsPage(val title: String) {
-    HOME("Settings"),
+    HOME("Your space"),
     DAY_RULES("Day rules"),
     TEMPLATE("Weekly template"),
     CALENDARS("Calendars"),
@@ -84,25 +84,19 @@ private class HomeRow(val page: SettingsPage, val title: String, val status: (Se
 private class HomeGroup(val title: String, val rows: List<HomeRow>)
 
 private val HOME_GROUPS = listOf(
-    HomeGroup("Plan", listOf(
+    HomeGroup("Your rhythm", listOf(
         HomeRow(SettingsPage.DAY_RULES, "Day rules") { it.dayRules },
         HomeRow(SettingsPage.TEMPLATE, "Weekly template") { it.template },
+        HomeRow(SettingsPage.NOTIFICATIONS, "Routines & notifications") { "Morning brief to lights-out" },
+    )),
+    HomeGroup("Connections", listOf(
         HomeRow(SettingsPage.CALENDARS, "Calendars") { it.calendars },
-    )),
-    HomeGroup("Body", listOf(
         HomeRow(SettingsPage.SLEEP, "Sleep and Health Connect") { it.sleep },
+        HomeRow(SettingsPage.SOCIAL, "Social time") { it.social },
     )),
-    HomeGroup("Time", listOf(
-        HomeRow(SettingsPage.SOCIAL, "Social media") { it.social },
-        HomeRow(SettingsPage.NOTIFICATIONS, "Notifications") { "Reminders and plan prompts" },
-    )),
-    HomeGroup("Look", listOf(
+    HomeGroup("Preferences & data", listOf(
+        HomeRow(SettingsPage.ASSISTANT, "AI coach") { it.assistant },
         HomeRow(SettingsPage.APPEARANCE, "Appearance") { it.appearance },
-    )),
-    HomeGroup("Assistant", listOf(
-        HomeRow(SettingsPage.ASSISTANT, "Sign in and spend") { it.assistant },
-    )),
-    HomeGroup("Your data", listOf(
         HomeRow(SettingsPage.HISTORY, "Change history") { "Every change, each can be undone" },
         HomeRow(SettingsPage.BACKUP, "Backup and restore") { "Save everything to a file, or restore one" },
     )),
@@ -115,15 +109,15 @@ private fun SettingsHome(onNavigate: (SettingsPage) -> Unit) {
     LaunchedEffect(Unit) { vm.refreshSleepStatus() }
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        item { Box(Modifier.height(2.dp)) }
+        item { ScreenHeading("Make it yours", "Your space") }
         HOME_GROUPS.forEach { group ->
             item(key = group.title) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(group.title.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))) {
+                    Column(Modifier.fillMaxWidth()) {
                         group.rows.forEachIndexed { index, row ->
                             if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             Row(
