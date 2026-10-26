@@ -8,6 +8,7 @@ import app.planner.model.TaskStatus
 import app.planner.model.Weeks
 import app.planner.plan.DayView
 import app.planner.plan.MoveResult
+import app.planner.plan.PlanMessage
 import app.planner.plan.PlanRepository
 import app.planner.plan.PlanSummary
 import app.planner.scheduler.Block
@@ -32,9 +33,6 @@ import kotlinx.coroutines.launch
 enum class CalendarMode(val label: String, val days: Int) {
     DAY("Day", 1), THREE_DAY("3 days", 3), WEEK("Week", 7)
 }
-
-/** One-off feedback for a snackbar; [undoChangeId] adds an Undo action. */
-data class PlanMessage(val text: String, val undoChangeId: Long? = null)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel

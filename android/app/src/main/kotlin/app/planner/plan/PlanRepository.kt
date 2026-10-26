@@ -80,6 +80,9 @@ data class PlanSummary(
     val pinConflicts: List<PinConflict> = emptyList(),
 )
 
+/** One-off feedback for a snackbar; [undoChangeId] adds an Undo action. */
+data class PlanMessage(val text: String, val undoChangeId: Long? = null)
+
 sealed interface MoveResult {
     data class Applied(val changeId: Long, val warnings: List<String>) : MoveResult
     data class Rejected(val reasons: List<String>) : MoveResult
