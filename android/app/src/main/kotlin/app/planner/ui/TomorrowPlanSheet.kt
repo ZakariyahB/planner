@@ -30,7 +30,7 @@ import app.planner.ui.theme.LocalStatusColors
 
 /**
  * The 23:30 sheet (docs/PLAN.md "Plan"): tomorrow's blocks with an include switch each, Approve and sleep,
- * and Ask Claude, which opens the Ask tab with a draft about tomorrow.
+ * and Ask Claude, which opens the coach sheet with a draft about tomorrow.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

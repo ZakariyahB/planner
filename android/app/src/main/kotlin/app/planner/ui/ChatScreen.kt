@@ -13,6 +13,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -53,7 +60,7 @@ private val SUGGESTIONS = listOf(
 )
 
 @Composable
-fun ChatScreen(vm: ChatViewModel) {
+fun ChatScreen(vm: ChatViewModel, showHeader: Boolean = true) {
     val items by vm.items.collectAsStateWithLifecycle()
     val proposals by vm.proposals.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
@@ -101,7 +108,7 @@ fun ChatScreen(vm: ChatViewModel) {
         ) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ask", style = MaterialTheme.typography.headlineMedium)
+                    if (showHeader) Text("AI chat", style = MaterialTheme.typography.headlineMedium)
                     if (items.isNotEmpty()) TextButton(onClick = vm::clearConversation) { Text("Clear") }
                 }
             }
@@ -135,8 +142,8 @@ fun ChatScreen(vm: ChatViewModel) {
                 placeholder = { Text(if (listening) "Listening…" else "Ask or tell me something") },
                 maxLines = 4,
             )
-            OutlinedButton(onClick = onMic) { Text(if (listening) "Stop" else "Mic") }
-            Button(onClick = { vm.send(draft) }, enabled = draft.isNotBlank() && !busy) { Text("Send") }
+            TextButton(onClick = onMic, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (listening) "Stop" else "Mic") }
+            IconButton(onClick = { vm.send(draft) }, enabled = draft.isNotBlank() && !busy) { Icon(Icons.AutoMirrored.Outlined.Send, "Send message", tint = if (draft.isNotBlank() && !busy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -144,6 +151,7 @@ fun ChatScreen(vm: ChatViewModel) {
 @Composable
 private fun EmptyChat(onPick: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("What changed?\nWe’ll work around it.", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
         Text(
             "I can move things when plans change, add tasks, and coach you on sleep and workload. I only change the plan through the planner's rules, and I ask before anything big.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -163,7 +171,7 @@ private fun Bubble(item: ChatItem) {
                 .widthIn(max = 320.dp)
                 .background(
                     if (mine) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(12.dp),
+                    MaterialTheme.shapes.medium,
                 )
                 .padding(12.dp),
         ) { Text(item.text) }
@@ -183,11 +191,11 @@ private fun ProposalCard(proposal: Proposal, onApprove: () -> Unit, onDismiss: (
     Column(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-            .padding(12.dp),
+            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.large)
+            .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(if (proposal.size == ChangeSize.BIG) "Needs your OK" else "Suggested change", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(if (proposal.size == ChangeSize.BIG) "Needs your approval" else "Suggested change", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Text(proposal.summary, style = MaterialTheme.typography.bodyLarge)
         problems.forEach { Text(it.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

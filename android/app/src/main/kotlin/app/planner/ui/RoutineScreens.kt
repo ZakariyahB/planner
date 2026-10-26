@@ -9,7 +9,7 @@ import app.planner.routines.RoutineLaunch
 
 /**
  * The screens a routine notification (or a card on Today) opens over whatever is showing.
- * [onAsk] switches to the Ask tab with a draft in the box; [onOpenTemplate] opens the weekly template.
+ * [onAsk] opens the coach sheet with a draft in the box; [onOpenTemplate] opens the weekly template.
  */
 @Composable
 fun RoutineScreens(onAsk: (String) -> Unit, onOpenTemplate: () -> Unit) {

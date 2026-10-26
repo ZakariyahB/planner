@@ -55,7 +55,7 @@ fun InsightsScreen(vm: InsightsViewModel) {
     ) {
         item {
             Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Insights", style = MaterialTheme.typography.headlineMedium)
+                ScreenHeading("Learn your rhythm", "A week\nin perspective.")
                 val from = ui.from
                 val to = ui.to
                 if (from != null && to != null) Text(rangeLabel(from, to), color = MaterialTheme.colorScheme.onSurfaceVariant)

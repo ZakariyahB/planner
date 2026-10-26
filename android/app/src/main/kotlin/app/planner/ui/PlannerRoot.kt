@@ -15,6 +15,32 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,8 +58,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,9 +71,9 @@ import app.planner.sleep.SleepRepository
 import app.planner.social.SocialEffects
 import kotlinx.coroutines.flow.collectLatest
 
-private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), ASK("Ask"), INSIGHTS("Insights") }
+private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Plan"), TASKS("Tasks"), INSIGHTS("Reflect") }
 
-/** Where the user is: one of the five tabs, or a page of Settings. */
+/** Four destinations; the coach opens over the current screen. */
 private sealed interface Destination {
     data class Main(val tab: Tab) : Destination
 
@@ -110,7 +139,10 @@ fun PlannerRoot() {
     var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
     var progressFor by remember { mutableStateOf<Task?>(null) }
+    var showCoach by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
+    val coachSnackbar = remember { SnackbarHostState() }
+    val screenState = rememberSaveableStateHolder()
 
     // Google's consent screen opens only after the user taps Connect, never on a silent background sync.
     var userConnecting by remember { mutableStateOf(false) }
@@ -139,39 +171,72 @@ fun PlannerRoot() {
 
     // Plan feedback, with Undo when the change can be reverted.
     LaunchedEffect(Unit) {
-        planVm.messages.collectLatest { m -> snackbar.announce(m.text, m.undoChangeId, planVm::undo) }
+        planVm.messages.collectLatest { m -> (if (showCoach) coachSnackbar else snackbar).announce(m.text, m.undoChangeId, planVm::undo) }
     }
 
     // Changes the assistant made for the user get the same Undo snackbar.
     LaunchedEffect(Unit) {
-        chatVm.announcements.collectLatest { m -> snackbar.announce(m.text, m.undoChangeId, planVm::undo) }
+        chatVm.announcements.collectLatest { m -> (if (showCoach) coachSnackbar else snackbar).announce(m.text, m.undoChangeId, planVm::undo) }
     }
 
     val openTemplate = { showSettings = true; settingsPage = SettingsPage.TEMPLATE }
 
     // Back steps up one level: a settings page to the list, the list to wherever you were.
     val goBack = { if (settingsPage != SettingsPage.HOME) settingsPage = SettingsPage.HOME else showSettings = false }
+    val openCoach = {
+        if (!showSettings && tab == Tab.CALENDAR && chatVm.draft.value.isBlank() && planVm.visibleStart.value != java.time.LocalDate.now()) {
+            chatVm.setDraft("About my plan for ${planVm.visibleStart.value.format(dateFormat)}: ")
+        }
+        showCoach = true
+    }
     BackHandler(enabled = showSettings) { goBack() }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(if (showSettings) settingsPage.title else "Planner") },
-                navigationIcon = { if (showSettings) TextButton(onClick = { goBack() }) { Text("Back") } },
-                actions = { if (!showSettings) TextButton(onClick = { settingsPage = SettingsPage.HOME; showSettings = true }) { Text("Settings") } },
+                title = { Text(if (showSettings && settingsPage != SettingsPage.HOME) settingsPage.title else "planner", style = MaterialTheme.typography.headlineSmall) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                navigationIcon = {
+                    if (showSettings) IconButton(onClick = goBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
+                    else Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 18.dp, end = 8.dp).size(34.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(20.dp)) }
+                    }
+                },
+                actions = {
+                    if (!showSettings) {
+                        IconButton(onClick = { editor = EditorTarget(null) }) { Icon(Icons.Outlined.Add, "Add task") }
+                        IconButton(onClick = { settingsPage = SettingsPage.HOME; showSettings = true }) { Icon(Icons.Outlined.Settings, "Your space and settings") }
+                    }
+                },
             )
         },
         bottomBar = {
-            NavigationBar {
+            Column {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                CoachDock(onClick = openCoach)
+                NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                 Tab.entries.forEach { t ->
                     NavigationBarItem(
                         selected = !showSettings && tab == t,
                         onClick = { tab = t; showSettings = false; settingsPage = SettingsPage.HOME },
-                        icon = {},
+                        icon = {
+                            when (t) {
+                                Tab.TODAY -> Icon(Icons.Outlined.Home, null)
+                                Tab.CALENDAR -> Icon(Icons.Outlined.DateRange, null)
+                                Tab.TASKS -> Icon(Icons.Outlined.CheckCircle, null)
+                                Tab.INSIGHTS -> ReflectIcon(if (!showSettings && tab == t) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
                         label = { Text(t.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                         alwaysShowLabel = true,
                     )
+                }
                 }
             }
         },
@@ -183,6 +248,7 @@ fun PlannerRoot() {
             transitionSpec = { destinationTransition(initialState, targetState) },
             label = "destination",
         ) { dest ->
+            screenState.SaveableStateProvider(if (dest is Destination.Main) dest.tab.name else "settings-${(dest as Destination.Settings).page.name}") {
             when (dest) {
                 is Destination.Settings -> SettingsScreen(
                     page = dest.page,
@@ -200,18 +266,37 @@ fun PlannerRoot() {
                     )
                     Tab.CALENDAR -> CalendarScreen(planVm, calendarConnected = lastSynced != null, onEditTask = { editor = EditorTarget(it) }, onLogProgress = { progressFor = it })
                     Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) }, onLogProgress = { progressFor = it }, onOpenTemplate = openTemplate)
-                    Tab.ASK -> ChatScreen(chatVm)
                     Tab.INSIGHTS -> InsightsScreen(insightsVm)
                 }
+            }
             }
         }
     }
 
     NotificationPermissionPrompt()
     RoutineScreens(
-        onAsk = { draft -> chatVm.setDraft(draft); tab = Tab.ASK; showSettings = false },
+        onAsk = { draft -> chatVm.setDraft(draft); showCoach = true },
         onOpenTemplate = openTemplate,
     )
+
+    if (showCoach) {
+        ModalBottomSheet(
+            onDismissRequest = { showCoach = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            Column(Modifier.fillMaxWidth().fillMaxHeight(.92f).imePadding()) {
+                Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("A little help with your day", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showCoach = false }) { Icon(Icons.Outlined.Close, "Close AI chat") }
+                }
+                Box(Modifier.weight(1f)) {
+                    ChatScreen(chatVm, showHeader = false)
+                    SnackbarHost(coachSnackbar, Modifier.align(Alignment.BottomCenter).padding(12.dp))
+                }
+            }
+        }
+    }
 
     progressFor?.let { task ->
         ProgressSheet(
