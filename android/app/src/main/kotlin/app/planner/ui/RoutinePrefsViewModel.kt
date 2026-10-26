@@ -3,6 +3,7 @@ package app.planner.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.routines.Routine
+import app.planner.routines.RoutineRunner
 import app.planner.routines.RoutineScheduler
 import app.planner.routines.RoutineSettings
 import app.planner.sleep.SleepRepository
@@ -20,6 +21,7 @@ class RoutinePrefsViewModel @Inject constructor(
     private val routines: RoutineSettings,
     private val scheduler: RoutineScheduler,
     private val sleep: SleepRepository,
+    private val runner: RoutineRunner,
 ) : ViewModel() {
     val enabled: StateFlow<Map<Routine, Boolean>> =
         combine(Routine.entries.map { r -> routines.observeEnabled(r).map { r to it } }) { pairs -> pairs.toMap() }
@@ -37,6 +39,9 @@ class RoutinePrefsViewModel @Inject constructor(
 
     /** Sets every alarm again, e.g. after the user allows exact alarms. */
     fun reschedule() = viewModelScope.launch { scheduler.rescheduleAll() }
+
+    /** Runs the routine now, so it can be seen without waiting for its time. */
+    fun sendNow(routine: Routine) = viewModelScope.launch { runner.sendNow(routine) }
 
     suspend fun backgroundSleepGranted(): Boolean? = sleep.backgroundReadGranted()
 
