@@ -121,8 +121,10 @@ class RoutineTriggersTest {
     }
 
     @Test
-    fun `morning brief still goes out late in the day if it was missed`() {
-        assertTrue(brief("15:00", awake = false))
+    fun `morning brief still goes out late in the morning if it was missed but not in the afternoon`() {
+        assertTrue(brief("13:59", awake = false))
+        assertFalse(brief("14:00", awake = false))
+        assertFalse(brief("15:00", awake = true))
     }
 
     @Test
