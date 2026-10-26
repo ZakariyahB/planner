@@ -2,9 +2,13 @@ package app.planner.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.data.DayLogDao
+import app.planner.data.DayLogEntity
 import app.planner.data.SettingsRepository
 import app.planner.data.TaskRepository
+import app.planner.model.ProgressOutcome
 import app.planner.model.Task
+import app.planner.model.TaskProgress
 import app.planner.model.TaskStatus
 import app.planner.model.TemplateItem
 import app.planner.model.WeeklyTemplate
@@ -27,6 +31,7 @@ class TasksViewModel @Inject constructor(
     private val tasks: TaskRepository,
     private val settings: SettingsRepository,
     private val plan: PlanRepository,
+    private val dayLog: DayLogDao,
     private val clock: Clock,
 ) : ViewModel() {
     val today: StateFlow<List<Task>> = tasks.tasks
@@ -62,6 +67,27 @@ class TasksViewModel @Inject constructor(
 
     fun toggleDone(task: Task) = viewModelScope.launch {
         tasks.setStatus(task.id, if (task.status == TaskStatus.DONE) TaskStatus.OPEN else TaskStatus.DONE)
+    }
+
+    /**
+     * Records [minutes] of work on [task] and what came of it. Finishing marks it done; partial work leaves the
+     * rest to be placed afresh at the next free time; dropping removes it from the plan.
+     */
+    fun logProgress(task: Task, minutes: Int, outcome: ProgressOutcome) = viewModelScope.launch {
+        val updated = TaskProgress.apply(task, minutes, outcome)
+        dayLog.insert(
+            DayLogEntity(
+                date = LocalDate.now(clock).toString(),
+                taskId = task.id,
+                plannedMin = task.estMin,
+                actualMin = minutes,
+                outcome = outcome.name,
+                note = null,
+            ),
+        )
+        if (outcome != ProgressOutcome.DONE) plan.forgetBlocks(task.id)
+        tasks.save(updated)
+        plan.replan()
     }
 
     fun drop(task: Task) = viewModelScope.launch {
