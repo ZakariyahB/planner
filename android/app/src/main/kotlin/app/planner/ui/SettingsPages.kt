@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -148,7 +149,9 @@ fun SleepPage(readinessVm: ReadinessViewModel, onAllowHealth: () -> Unit) {
 fun AssistantPage(chatVm: ChatViewModel) {
     val spend by chatVm.spendGbp.collectAsStateWithLifecycle()
     val problem by chatVm.problem.collectAsStateWithLifecycle()
+    val account by chatVm.account.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    LaunchedEffect(Unit) { chatVm.refreshAccount() }
 
     Page {
         item {
@@ -163,7 +166,13 @@ fun AssistantPage(chatVm: ChatViewModel) {
                         "AI spend this month: " + String.format(Locale.UK, "£%.2f of £%.0f", spend, AiSpendRepository.CAP_GBP),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedButton(onClick = { chatVm.signIn(context) }) { Text("Sign in for the assistant") }
+                    Text(
+                        account?.let { "Signed in as $it" } ?: "Not signed in",
+                        color = if (account != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = { chatVm.signIn(context) }) {
+                        Text(if (account != null) "Switch account" else "Sign in for the assistant")
+                    }
                     problem?.let { Text(it.message, color = MaterialTheme.colorScheme.error) }
                 }
                 Text(

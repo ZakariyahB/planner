@@ -40,6 +40,9 @@ class IdTokenProvider @Inject constructor(
 
     val isSignedIn: Boolean get() = cached?.let { Jwt.stillValid(it, clock.instant().epochSecond, MARGIN_SECONDS) } == true
 
+    /** The address behind the token in use, or null when nobody is signed in. */
+    val email: String? get() = cached?.takeIf { isSignedIn }?.let(Jwt::email)
+
     fun invalidate() {
         cached = null
     }

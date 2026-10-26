@@ -86,6 +86,19 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    private val _account = MutableStateFlow<String?>(null)
+
+    /** The Google address the assistant is signed in as, or null when nobody is. */
+    val account: StateFlow<String?> = _account
+
+    /** Looks for an account that already signed in, without showing any screen. */
+    fun refreshAccount() {
+        viewModelScope.launch {
+            tokens.token()
+            _account.value = tokens.email
+        }
+    }
+
     /** Opens Google's sign-in; [activity] is needed because it shows a screen. */
     fun signIn(activity: Context) {
         viewModelScope.launch {
@@ -94,6 +107,7 @@ class ChatViewModel @Inject constructor(
                 TokenResult.NeedsSignIn -> _problem.value = ChatProblem("Sign in was cancelled", AiFailure.SIGN_IN)
                 is TokenResult.Unavailable -> _problem.value = ChatProblem(result.message, AiFailure.OTHER)
             }
+            _account.value = tokens.email
         }
     }
 
