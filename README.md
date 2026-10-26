@@ -54,4 +54,4 @@ The system prompt and tool definitions live in `docs/prompts` and are bundled in
 
 ## Status
 
-See the milestone list in docs/PLAN.md. M0 to M6 are written. M7 (polish) is partly done: Insights, editable day rules, the change history and the reorganised Settings are in; backup and restore, the log-progress sheet on Today, the first-run setup checklist and the SETUP and MANUAL guides are not yet. The pure-Kotlin core and the Worker are tested; the `:app` module was written without an Android SDK to compile against, so check it in Android Studio.
+See the milestone list in docs/PLAN.md. M0 to M7 are written. M7 added Insights, editable day rules, the change history, the reorganised Settings, backup and restore to a file, long-press to log progress on a task, the Get set up checklist on Today, empty and error states with plain-language messages, and the guides: [docs/SETUP.md](docs/SETUP.md) to install it and [docs/MANUAL.md](docs/MANUAL.md) to use it. The pure-Kotlin core and the Worker are tested; the `:app` module was written without an Android SDK to compile against, so check it in Android Studio.
