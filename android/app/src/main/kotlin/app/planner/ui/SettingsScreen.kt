@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.BuildConfig
 import app.planner.ai.AiSpendRepository
 import app.planner.sleep.HealthStatus
+import app.planner.social.SocialSettingsSection
 import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Locale
@@ -151,6 +152,8 @@ fun SettingsScreen(
                 }
             }
         }
+
+        item { SocialSettingsSection() }
 
         item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
         item { SectionTitle("Tasks") }
