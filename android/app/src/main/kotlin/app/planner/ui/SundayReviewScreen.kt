@@ -1,5 +1,6 @@
 package app.planner.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,8 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
@@ -57,38 +56,37 @@ fun SundayReviewScreen(onDismiss: () -> Unit, onOpenTemplate: () -> Unit, vm: Su
     var step by rememberSaveable { mutableStateOf(0) }
     LaunchedEffect(Unit) { vm.start() }
 
-    // Edge to edge, so the insets reach the content: otherwise the window overlaps the navigation bar and
-    // the keyboard, and the Next button underneath can't be tapped.
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 16.dp)) {
-                Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Sunday review", style = MaterialTheme.typography.headlineMedium)
-                    Text(
-                        "Step ${step + 1} of $STEPS · planning the week of ${dateFormat.format(ui.planWeek)}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+    // Drawn inside the app rather than as a dialog: a dialog's own window didn't get the navigation-bar inset,
+    // so Next and Close ended up under it. Here the app's edge-to-edge insets apply.
+    BackHandler(onBack = onDismiss)
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 16.dp)) {
+            Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Sunday review", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    "Step ${step + 1} of $STEPS · planning the week of ${dateFormat.format(ui.planWeek)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    when (step) {
-                        0 -> WeekStep(ui)
-                        1 -> DeadlinesStep(ui, onAdd = vm::addDeadline)
-                        2 -> FajrStep(ui, onPick = vm::saveFajr)
-                        3 -> TemplateStep(ui, onOpenTemplate)
-                        else -> GenerateStep(ui, onGenerate = vm::generate)
-                    }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when (step) {
+                    0 -> WeekStep(ui)
+                    1 -> DeadlinesStep(ui, onAdd = vm::addDeadline)
+                    2 -> FajrStep(ui, onPick = vm::saveFajr)
+                    3 -> TemplateStep(ui, onOpenTemplate)
+                    else -> GenerateStep(ui, onGenerate = vm::generate)
                 }
+            }
 
-                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (step > 0) OutlinedButton(onClick = { step -= 1 }) { Text("Back") }
-                    if (step < STEPS - 1) {
-                        Button(onClick = { step += 1 }) { Text("Next") }
-                        TextButton(onClick = onDismiss) { Text("Close") }
-                    } else {
-                        Button(onClick = onDismiss) { Text("Done") }
-                    }
+            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (step > 0) OutlinedButton(onClick = { step -= 1 }) { Text("Back") }
+                if (step < STEPS - 1) {
+                    Button(onClick = { step += 1 }) { Text("Next") }
+                    TextButton(onClick = onDismiss) { Text("Close") }
+                } else {
+                    Button(onClick = onDismiss) { Text("Done") }
                 }
             }
         }
