@@ -2,6 +2,8 @@ package app.planner.data
 
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
@@ -14,6 +16,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /** Only the final score of a day is stored: it is fixed once set, so overruns replan instead of rescoring. */
+@Serializable
 @Entity(tableName = "readiness")
 data class ReadinessEntity(
     @PrimaryKey val date: String,
@@ -48,4 +51,14 @@ interface ReadinessDao {
 
     @Upsert
     suspend fun put(entity: ReadinessEntity)
+
+    @Query("SELECT * FROM readiness")
+    suspend fun all(): List<ReadinessEntity>
+
+    @Query("DELETE FROM readiness")
+    suspend fun clear()
+
+    /** For restoring a backup: rows keep the ids they had. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplacing(rows: List<ReadinessEntity>)
 }

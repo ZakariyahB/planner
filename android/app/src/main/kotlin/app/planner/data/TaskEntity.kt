@@ -17,7 +17,9 @@ import app.planner.model.TaskStatus
 import java.time.Instant
 import java.time.LocalTime
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "tasks", indices = [Index(value = ["templateKey"], unique = true)])
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -90,4 +92,11 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET status = :status WHERE id = :id")
     suspend fun setStatus(id: Long, status: String)
+
+    @Query("DELETE FROM tasks")
+    suspend fun clear()
+
+    /** For restoring a backup: rows keep the ids they had. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplacing(rows: List<TaskEntity>)
 }

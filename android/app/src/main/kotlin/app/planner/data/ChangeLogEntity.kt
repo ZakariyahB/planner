@@ -3,6 +3,7 @@ package app.planner.data
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import app.planner.scheduler.Block
@@ -18,6 +19,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 /** ChangeLog from the plan: powers Undo and the change history. */
+@Serializable
 @Entity(tableName = "change_log")
 data class ChangeLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -72,4 +74,14 @@ interface ChangeLogDao {
 
     @Query("SELECT * FROM change_log ORDER BY ts DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ChangeLogEntity>>
+
+    @Query("SELECT * FROM change_log")
+    suspend fun all(): List<ChangeLogEntity>
+
+    @Query("DELETE FROM change_log")
+    suspend fun clear()
+
+    /** For restoring a backup: rows keep the ids they had. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplacing(rows: List<ChangeLogEntity>)
 }

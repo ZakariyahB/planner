@@ -2,12 +2,16 @@ package app.planner.data
 
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
 /** Minutes on social-media apps for one day, with the split per app as JSON. */
+@Serializable
 @Entity(tableName = "social_usage")
 data class SocialUsageEntity(
     @PrimaryKey val date: String,
@@ -28,4 +32,14 @@ interface SocialUsageDao {
 
     @Upsert
     suspend fun put(usage: SocialUsageEntity)
+
+    @Query("SELECT * FROM social_usage")
+    suspend fun all(): List<SocialUsageEntity>
+
+    @Query("DELETE FROM social_usage")
+    suspend fun clear()
+
+    /** For restoring a backup: rows keep the ids they had. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplacing(rows: List<SocialUsageEntity>)
 }
