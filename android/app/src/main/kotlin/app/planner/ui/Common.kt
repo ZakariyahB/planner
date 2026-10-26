@@ -54,6 +54,7 @@ fun taskMeta(task: Task, zone: ZoneId): String = listOfNotNull(
     task.module,
     "${task.estMin} min",
     task.dueAt?.atZone(zone)?.toLocalDate()?.format(dateFormat)?.let { "due $it" },
+    task.startAt?.let { "at ${timeFormat.format(it)}" },
     task.anchor?.label(),
 ).joinToString(" · ")
 

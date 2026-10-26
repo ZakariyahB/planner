@@ -44,7 +44,9 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
     var due by remember { mutableStateOf(task?.dueAt?.atZone(zone)?.toLocalDate()) }
     var priority by remember { mutableStateOf(task?.priority ?: Priority.NORMAL) }
     var anchor by remember { mutableStateOf<Anchor?>(task?.anchor) }
+    var startAt by remember { mutableStateOf(task?.startAt) }
     var pickingDate by remember { mutableStateOf(false) }
+    var pickingTime by remember { mutableStateOf(false) }
 
     val estMin = minutes.toIntOrNull()
     val valid = title.isNotBlank() && estMin != null && estMin in 5..Task.MAX_EST_MIN
@@ -69,6 +71,12 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
                     OutlinedButton(onClick = { pickingDate = true }) { Text(due?.format(dateFormat)?.let { "Due $it" } ?: "No due date") }
                     if (due != null) TextButton(onClick = { due = null }) { Text("Clear") }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { pickingTime = true }) {
+                        Text(startAt?.let { "At ${timeFormat.format(it)}" } ?: "Let the planner choose a time")
+                    }
+                    if (startAt != null) TextButton(onClick = { startAt = null }) { Text("Clear") }
+                }
                 PriorityPicker(priority) { priority = it }
                 AnchorPicker(anchor) { anchor = it }
             }
@@ -86,6 +94,7 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
                             dueAt = due?.atTime(LocalTime.of(23, 59))?.atZone(zone)?.toInstant(),
                             priority = priority,
                             anchor = anchor,
+                            startAt = startAt,
                         ),
                     )
                 },
@@ -98,6 +107,15 @@ fun TaskEditor(task: Task?, onSave: (Task) -> Unit, onDrop: (() -> Unit)?, onDis
             }
         },
     )
+
+    if (pickingTime) {
+        TimePickerDialog(
+            title = "Do it at",
+            initial = startAt ?: LocalTime.of(9, 0),
+            onConfirm = { startAt = it; pickingTime = false },
+            onDismiss = { pickingTime = false },
+        )
+    }
 
     if (pickingDate) {
         // The picker works in UTC midnights; convert to a plain LocalDate and never touch the zone.
