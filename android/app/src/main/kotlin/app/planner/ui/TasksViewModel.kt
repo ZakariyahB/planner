@@ -6,6 +6,7 @@ import app.planner.data.DayLogDao
 import app.planner.data.DayLogEntity
 import app.planner.data.SettingsRepository
 import app.planner.data.TaskRepository
+import app.planner.empty.EmptyStates
 import app.planner.model.ProgressOutcome
 import app.planner.model.Task
 import app.planner.model.TaskProgress
@@ -108,7 +109,7 @@ class TasksViewModel @Inject constructor(
     fun generateWeek(weeksAhead: Long) = viewModelScope.launch {
         val created = tasks.generateFromTemplate(template.value, weeksAhead)
         if (created > 0) plan.replan()
-        _generated.value = if (created == 0) "Nothing new: those tasks already exist" else "Added $created task${if (created == 1) "" else "s"}"
+        _generated.value = EmptyStates.generated(created, template.value.items.size)
     }
 
     fun clearGenerated() {
