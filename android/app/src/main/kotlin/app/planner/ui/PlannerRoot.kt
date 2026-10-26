@@ -31,7 +31,7 @@ import app.planner.model.Task
 import app.planner.sleep.SleepRepository
 import app.planner.social.SocialEffects
 
-private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), ASK("Ask") }
+private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), ASK("Ask"), INSIGHTS("Insights") }
 
 /** Null [task] means "add a new one". */
 private data class EditorTarget(val task: Task?)
@@ -44,6 +44,7 @@ fun PlannerRoot() {
     val planVm: PlanViewModel = hiltViewModel()
     val readinessVm: ReadinessViewModel = hiltViewModel()
     val chatVm: ChatViewModel = hiltViewModel()
+    val insightsVm: InsightsViewModel = hiltViewModel()
     SocialEffects()
 
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
@@ -131,6 +132,7 @@ fun PlannerRoot() {
                 Tab.CALENDAR -> CalendarScreen(planVm)
                 Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) })
                 Tab.ASK -> ChatScreen(chatVm)
+                Tab.INSIGHTS -> InsightsScreen(insightsVm)
             }
         }
     }
