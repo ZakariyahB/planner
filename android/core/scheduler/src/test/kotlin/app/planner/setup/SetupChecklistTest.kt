@@ -66,4 +66,11 @@ class SetupChecklistTest {
         assertEquals(SetupStep.HEALTH, SetupChecklist.next(SetupChecklist.items(nothing.copy(calendarConnected = true))))
         assertEquals(null, SetupChecklist.next(SetupChecklist.items(nothing.copy(true, true, true, true, true, true))))
     }
+
+    @Test
+    fun `the card says how far along it is`() {
+        assertEquals("0 of 6 done", SetupChecklist.summary(SetupChecklist.items(nothing)))
+        assertEquals("2 of 6 done", SetupChecklist.summary(SetupChecklist.items(nothing.copy(calendarConnected = true, fajrSet = true))))
+        assertEquals("1 of 5 done", SetupChecklist.summary(SetupChecklist.items(nothing.copy(healthAvailable = false, usageAccessGranted = true))))
+    }
 }

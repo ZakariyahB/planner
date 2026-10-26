@@ -39,5 +39,8 @@ object SetupChecklist {
 
     fun progress(items: List<SetupItem>): Double = if (items.isEmpty()) 1.0 else doneCount(items).toDouble() / items.size
 
+    /** For the card's subtitle, for example "2 of 6 done". */
+    fun summary(items: List<SetupItem>): String = "${doneCount(items)} of ${items.size} done"
+
     fun next(items: List<SetupItem>): SetupStep? = items.firstOrNull { !it.done }?.step
 }
