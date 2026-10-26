@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -40,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.planner.empty.EmptyStates
 import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.plan.DayView
@@ -56,7 +59,7 @@ private const val SNAP_MIN = 15
 private const val MIN_BLOCK_MIN = 15
 
 @Composable
-fun CalendarScreen(vm: PlanViewModel) {
+fun CalendarScreen(vm: PlanViewModel, calendarConnected: Boolean) {
     val mode by vm.mode.collectAsStateWithLifecycle()
     val start by vm.visibleStart.collectAsStateWithLifecycle()
     val days by vm.days.collectAsStateWithLifecycle()
@@ -86,6 +89,12 @@ fun CalendarScreen(vm: PlanViewModel) {
         }
         problem?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
 
+        if (days.isNotEmpty() && days.all { it.blocks.isEmpty() }) {
+            val waiting = tasks.values.count { it.status == TaskStatus.OPEN || it.status == TaskStatus.PARTIAL }
+            EmptyStateCard(EmptyStates.calendar(waiting, calendarConnected), Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Button(onClick = vm::replan, modifier = Modifier.heightIn(min = 48.dp)) { Text("Replan") }
+            }
+        }
         DayHeaders(days)
         Timeline(days, tasks, onMove = vm::move, onSelect = { selected = it })
     }

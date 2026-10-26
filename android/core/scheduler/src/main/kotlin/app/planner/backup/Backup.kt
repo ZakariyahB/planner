@@ -10,6 +10,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import java.time.Instant
+import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
 /** What a backup file holds: when it was made and the rows of each table, as JSON. */
@@ -53,6 +54,9 @@ object Backup {
     )
 
     private const val NOT_A_BACKUP = "That isn't a Planner backup."
+
+    /** The name suggested when saving a backup, for example "planner-backup-2026-10-26.json". */
+    fun fileName(date: LocalDate): String = "$APP-backup-$date.json"
 
     fun encode(createdAt: Instant, tables: Map<String, JsonArray>): String = buildJsonObject {
         put("app", APP)

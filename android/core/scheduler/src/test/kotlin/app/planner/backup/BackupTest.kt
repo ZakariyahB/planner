@@ -5,6 +5,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -89,5 +90,11 @@ class BackupTest {
     fun `the tables an app restore replaces are only those present in the file`() {
         val result = Backup.parse(encode(mapOf("tasks" to rows(1), "blocks" to rows(1), "settings" to rows(1)))) as BackupParse.Ok
         assertEquals(listOf("settings", "tasks", "blocks"), Backup.TABLES.filter { it in result.file.tables })
+    }
+
+    @Test
+    fun `the suggested file name carries the date`() {
+        assertEquals("planner-backup-2026-10-26.json", Backup.fileName(LocalDate.of(2026, 10, 26)))
+        assertEquals("planner-backup-2026-01-05.json", Backup.fileName(LocalDate.of(2026, 1, 5)))
     }
 }

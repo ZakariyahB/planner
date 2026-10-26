@@ -19,6 +19,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -40,6 +41,8 @@ data class ReviewUi(
     val generating: Boolean = false,
     /** Tasks created from the template; null until he generates. */
     val generated: Int? = null,
+    /** Why the last Generate did not finish, in plain words. */
+    val problem: String? = null,
 )
 
 /** The Sunday review: planned against done, deadlines, Fajr, the template, then next week's tasks and plan. */
@@ -96,13 +99,17 @@ class SundayReviewViewModel @Inject constructor(
         if (_ui.value.generating) return
         viewModelScope.launch {
             val week = _ui.value.planWeek
-            _ui.update { it.copy(generating = true) }
+            _ui.update { it.copy(generating = true, problem = null) }
             try {
                 val weeksAhead = ChronoUnit.WEEKS.between(Weeks.mondayOf(LocalDate.now(clock)), week)
                 val created = tasks.generateFromTemplate(settings.template.first(), weeksAhead)
                 routines.markWeekGenerated(week)
                 plan.replan()
                 _ui.update { it.copy(generated = created) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _ui.update { it.copy(problem = "Couldn't plan next week just now. Nothing was lost: tap Generate and plan to try again.") }
             } finally {
                 _ui.update { it.copy(generating = false) }
             }

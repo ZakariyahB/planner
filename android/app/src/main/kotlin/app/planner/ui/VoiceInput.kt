@@ -46,7 +46,7 @@ class VoiceInput(
                         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> onProblem("I didn't catch that. Try again.")
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> onProblem("Allow the microphone to use voice.")
                         SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> onProblem("Offline speech isn't installed. Add it in your phone's language settings.")
-                        else -> onProblem("Voice input failed (code $error)")
+                        else -> onProblem("Voice input stopped working. Try again, or type your message instead.")
                     }
                 }
 
