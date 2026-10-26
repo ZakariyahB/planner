@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.scheduler.Block
+import app.planner.social.SocialTimeCard
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -74,6 +75,8 @@ fun TodayScreen(
             )
         }
         if (fajr == null) item { FajrCard(onSet = readinessVm::saveFajr) }
+
+        item { SocialTimeCard() }
 
         if (lastSynced == null || sync is SyncUi.NeedsConsent || sync is SyncUi.Failed) {
             item { ConnectCard(sync, connected = lastSynced != null, onConnect = onConnect) }
