@@ -64,7 +64,7 @@ class ReadinessViewModel @Inject constructor(
     fun refresh() = viewModelScope.launch {
         val v = readiness.evaluate()
         _view.value = v
-        if (v.newlyFinal) plan.replan() // the day's load just became known
+        if (v.newlyFinal) plan.replan() else plan.replanIfSleepChanged() // a new load, or new sleep to plan around
     }
 
     fun saveFajr(time: LocalTime) = viewModelScope.launch {

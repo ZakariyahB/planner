@@ -12,6 +12,7 @@ import app.planner.data.BlockDao
 import app.planner.data.ChangeLogDao
 import app.planner.data.ChangeLogEntity
 import app.planner.data.SettingsRepository
+import app.planner.data.SleepDao
 import app.planner.data.TaskRepository
 import app.planner.data.decodeDiffs
 import app.planner.data.encodeDiffs
@@ -24,6 +25,7 @@ import app.planner.model.Weeks
 import app.planner.readiness.ReadinessBand
 import app.planner.sleep.ReadinessRepository
 import app.planner.scheduler.Actor
+import app.planner.scheduler.AsleepSpan
 import app.planner.scheduler.Block
 import app.planner.scheduler.BlockDiff
 import app.planner.scheduler.ChangeSet
@@ -35,6 +37,8 @@ import app.planner.scheduler.Scheduler
 import app.planner.scheduler.apply
 import app.planner.scheduler.validate
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
@@ -43,6 +47,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,6 +62,8 @@ data class DayView(
     val prayers: Map<Prayer, LocalTime>,
     val blocks: List<Block>,
     val colours: Map<String, String?>,
+    /** Periods he was asleep that touch this day. */
+    val asleep: List<AsleepSpan>,
 )
 
 data class PlanSummary(
@@ -80,6 +89,7 @@ class PlanRepository @Inject constructor(
     private val calendar: CalendarRepository,
     private val settings: SettingsRepository,
     private val readiness: ReadinessRepository,
+    private val sleepDao: SleepDao,
     private val plannerSync: PlannerCalendarSync,
     private val clock: Clock,
 ) {
@@ -103,11 +113,16 @@ class PlanRepository @Inject constructor(
         val selected: Set<String>,
         val plannerId: String?,
         val fajr: Map<LocalDate, LocalTime>,
+        val asleep: List<AsleepSpan>,
     )
 
+    private val asleepSpans: Flow<List<AsleepSpan>> =
+        flow { emitAll(sleepDao.observeSince(sleepLookbackStart().toEpochMilli())) }
+            .map { rows -> rows.map { AsleepSpan(Instant.ofEpochMilli(it.startMillis), Instant.ofEpochMilli(it.endMillis)) } }
+
     private val calSettings: Flow<CalSettings> =
-        combine(settings.calendars, settings.selectedCalendarIds, settings.plannerCalendarId, settings.fajrWeeks) { cals, sel, planner, fajr ->
-            CalSettings(cals, sel ?: FixedEvents.defaultSelection(cals), planner, fajr)
+        combine(settings.calendars, settings.selectedCalendarIds, settings.plannerCalendarId, settings.fajrWeeks, asleepSpans) { cals, sel, planner, fajr, asleep ->
+            CalSettings(cals, sel ?: FixedEvents.defaultSelection(cals), planner, fajr, asleep)
         }
 
     fun dayViews(from: LocalDate, to: LocalDate): Flow<List<DayView>> =
@@ -122,6 +137,7 @@ class PlanRepository @Inject constructor(
                     prayers = ctx.prayers,
                     blocks = all.filter { it.date == date },
                     colours = cs.calendars.associate { it.id to it.colorHex },
+                    asleep = cs.asleep.filter { it.start.atZone(clock.zone).toLocalDate() <= date && it.end.atZone(clock.zone).toLocalDate() >= date },
                 )
             }.toList()
         }
@@ -132,6 +148,14 @@ class PlanRepository @Inject constructor(
      * today move forward. Pushes the result to the Planner calendar.
      */
     suspend fun replan(): PlanSummary = replanLock.withLock { buildPlan() }
+
+    /** Sleep data arrives after the fact (Fitbit syncs late); when it has changed since the last plan, plan again. */
+    suspend fun replanIfSleepChanged() {
+        val latest = sleepDao.since(sleepLookbackStart().toEpochMilli()).maxOfOrNull { it.endMillis }
+        if (latest != settings.plannedSleepEnd()) replan()
+    }
+
+    private fun sleepLookbackStart(): Instant = clock.instant().minus(Duration.ofDays(SLEEP_LOOKBACK_DAYS))
 
     private suspend fun buildPlan(): PlanSummary {
         val now = clock.instant()
@@ -179,6 +203,7 @@ class PlanRepository @Inject constructor(
             pinConflicts = week.pinConflicts,
         )
         _summary.value = summary
+        settings.savePlannedSleepEnd(sleepDao.since(sleepLookbackStart().toEpochMilli()).maxOfOrNull { it.endMillis })
         pushToGoogle()
         return summary
     }
@@ -274,6 +299,7 @@ class PlanRepository @Inject constructor(
             prayers = PrayerTimes.forDate(date, byDate, cs.fajr[Weeks.mondayOf(date)]),
             existing = existing,
             notBefore = notBefore,
+            asleep = cs.asleep,
         )
     }
 
@@ -294,5 +320,6 @@ class PlanRepository @Inject constructor(
 
     companion object {
         const val HORIZON_DAYS = 7
+        private const val SLEEP_LOOKBACK_DAYS = 21L
     }
 }

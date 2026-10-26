@@ -98,6 +98,12 @@ class SettingsRepository @Inject constructor(private val dao: SettingsDao) {
         dao.put(SettingEntity(KEY_FAJR, json.encodeToString(current + (weekMonday.toString() to time.toString()))))
     }
 
+    /** Newest sleep the last plan took into account, in epoch millis; lets a replan notice new sleep data. */
+    suspend fun plannedSleepEnd(): Long? = dao.get(KEY_PLANNED_SLEEP)?.toLongOrNull()
+
+    suspend fun savePlannedSleepEnd(millis: Long?) =
+        dao.put(SettingEntity(KEY_PLANNED_SLEEP, millis?.toString().orEmpty()))
+
     suspend fun approveLoadCut(day: LocalDate) = dao.put(SettingEntity(KEY_LOAD_CUT, day.toString()))
 
     private companion object {
@@ -109,5 +115,6 @@ class SettingsRepository @Inject constructor(private val dao: SettingsDao) {
         const val KEY_PLANNER_CALENDAR = "planner_calendar_id"
         const val KEY_FAJR = "fajr_weeks"
         const val KEY_LOAD_CUT = "load_cut_approved_on"
+        const val KEY_PLANNED_SLEEP = "planned_sleep_end"
     }
 }
