@@ -21,6 +21,8 @@ data class Block(
     val locked: Boolean = false,
     val gcalEventId: String? = null,
     val origin: BlockOrigin = BlockOrigin.SCHEDULER,
+    /** Name of a commitment (kind FIXED), which has no task. */
+    val label: String? = null,
 ) {
     init {
         require(end > start) { "block must end after it starts" }
