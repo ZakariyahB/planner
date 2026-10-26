@@ -5,10 +5,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +66,7 @@ fun TaskEditor(
     var pickingTime by remember { mutableStateOf(false) }
     var days by remember { mutableStateOf(emptySet<DayOfWeek>()) }
     var nextWeek by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(task != null) }
     val today = LocalDate.now(zone)
     val weekMonday = Weeks.mondayOf(today).plusWeeks(if (nextWeek) 1 else 0)
     val chosenDates = Weeks.dates(weekMonday, days).filter { it >= today }
@@ -67,13 +74,15 @@ fun TaskEditor(
     val estMin = minutes.toIntOrNull()
     val valid = title.isNotBlank() && estMin != null && estMin in 5..Task.MAX_EST_MIN
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(if (task == null) "Add task" else "Edit task") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).imePadding().padding(horizontal = 22.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(if (task == null) "Make time for something" else "Task details", style = MaterialTheme.typography.headlineSmall)
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(module, { module = it }, label = { Text("Module (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     minutes,
                     { minutes = it.filter(Char::isDigit) },
@@ -83,6 +92,9 @@ fun TaskEditor(
                     isError = estMin == null || estMin !in 5..Task.MAX_EST_MIN,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                TextButton(onClick = { showDetails = !showDetails }) { Text(if (showDetails) "Hide extra details" else "Timing, days, module & priority") }
+                if (showDetails) {
+                OutlinedTextField(module, { module = it }, label = { Text("Module (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (task == null) {
                     DayChooser(days, nextWeek, weekMonday, today, onDays = { days = it }, onNextWeek = { nextWeek = it })
                 }
@@ -100,10 +112,11 @@ fun TaskEditor(
                 }
                 PriorityPicker(priority) { priority = it }
                 AnchorPicker(anchor) { anchor = it }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(
+            Text("One task, one uninterrupted block. Planner checks the time against your day rules.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
                 enabled = valid,
                 onClick = {
                     val base = task ?: Task(title = title.trim(), estMin = estMin!!)
@@ -118,15 +131,12 @@ fun TaskEditor(
                         )
                     if (task == null && chosenDates.isNotEmpty()) onSaveOnDays(edited, chosenDates) else onSave(edited)
                 },
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            Row {
+            ) { Text("Save task") }
                 if (onDrop != null) TextButton(onClick = onDrop) { Text("Drop") }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
-        },
-    )
+        }
+    }
 
     if (pickingTime) {
         TimePickerDialog(

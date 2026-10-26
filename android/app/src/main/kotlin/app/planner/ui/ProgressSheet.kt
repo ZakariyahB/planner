@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,8 +57,9 @@ fun ProgressSheet(task: Task, onSave: (minutes: Int, outcome: ProgressOutcome) -
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("A little progress counts.", style = MaterialTheme.typography.headlineSmall)
                 Text(task.title, style = MaterialTheme.typography.titleMedium)
                 Text("${ProgressPreview.duration(task.estMin)} planned", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -103,7 +105,7 @@ fun ProgressSheet(task: Task, onSave: (minutes: Int, outcome: ProgressOutcome) -
                     onClick = { onSave(minutes ?: 0, outcome) },
                     enabled = problem == null,
                     modifier = Modifier.heightIn(min = 48.dp),
-                ) { Text("Save") }
+                ) { Text("Save progress") }
             }
         }
     }
