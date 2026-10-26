@@ -147,6 +147,7 @@ The **Insights** tab shows the last seven days: your sleep as a timeline, lights
 | Sleep and Health Connect | Permission, sync, this week's Fajr |
 | Social media | Apps, budget, nudges |
 | Notifications | A switch for each routine, and **Send now** to test one |
+| Appearance | Light, dark, or match your phone |
 | Assistant | Sign in, this month's spend |
 | Change history | Every change, with Undo |
 | Backup and restore | See below |
