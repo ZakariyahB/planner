@@ -64,6 +64,12 @@ class ReadinessRepository @Inject constructor(
         return ReadinessView(state, newlyFinal, forecast(nights, today, doneRatio = doneRatio(today)), nights.firstOrNull { it.date == today })
     }
 
+    /** The last [count] nights on record, oldest first. */
+    suspend fun recentNights(count: Int): List<SleepNight> = nights().takeLast(count)
+
+    /** The final score stored for [date], if that night was scored. */
+    suspend fun finalFor(date: LocalDate): Readiness? = readinessDao.get(date.toString())?.toReadiness()
+
     /** The band that sets today's load, once the night is over; null while provisional or waiting. */
     suspend fun finalBandToday(): ReadinessBand? =
         readinessDao.get(LocalDate.now(clock).toString())?.band?.let(ReadinessBand::valueOf)
