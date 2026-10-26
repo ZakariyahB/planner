@@ -36,8 +36,9 @@ class AiAssistant @Inject constructor(
         Json.parseToJsonElement(context.assets.open("tools.json").bufferedReader().use { it.readText() }).jsonArray
     }
 
-    suspend fun ask(history: List<ChatEntry>, text: String, purpose: Purpose = Purpose.CHAT): AgentResult =
-        Agent(llm, tools, system, toolSchemas).run(
+    /** [readOnly] lets the model look at the day but refuses every tool that changes anything (unattended runs). */
+    suspend fun ask(history: List<ChatEntry>, text: String, purpose: Purpose = Purpose.CHAT, readOnly: Boolean = false): AgentResult =
+        Agent(llm, if (readOnly) ReadOnlyTools(tools) else tools, system, toolSchemas).run(
             history = ChatHistory.toMessages(history),
             userText = Preamble.withUserText(ZonedDateTime.now(clock), text),
             purpose = purpose,

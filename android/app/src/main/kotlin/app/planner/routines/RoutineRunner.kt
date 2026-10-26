@@ -46,6 +46,7 @@ class RoutineRunner @Inject constructor(
     private val scheduler: RoutineScheduler,
     private val blocks: BlockDao,
     private val planRows: TomorrowPlanRepository,
+    private val planNotes: PlanNoteWriter,
     private val reviews: SundayReviewRepository,
     private val clock: Clock,
 ) {
@@ -118,7 +119,8 @@ class RoutineRunner @Inject constructor(
         val rows = planRows.rowsOn(date)
         val outline = TomorrowPlan.outline(rows, emptySet())
         val forecast = forecastNote()
-        notifier.post(Routine.PLAN_READY, NotificationTexts.planReady(outline, forecast), LaunchTarget.TOMORROW_PLAN)
+        val note = planNotes.write(date, rows, forecast) // null if the AI is unavailable; the text stands on its own
+        notifier.post(Routine.PLAN_READY, NotificationTexts.planReady(outline, forecast), LaunchTarget.TOMORROW_PLAN, extraLine = note)
         routines.markSent(Routine.PLAN_READY, today)
     }
 
