@@ -1,5 +1,6 @@
 package app.planner.ui
 
+import android.content.Intent
 import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import app.planner.calendar.FixedEvent
 import app.planner.calendar.FixedEvents
 import app.planner.calendar.SyncResult
 import app.planner.data.SettingsRepository
+import app.planner.plan.PlanRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.Instant
@@ -36,6 +38,7 @@ data class TodayCalendar(val fixed: List<FixedEvent> = emptyList(), val allDay: 
 class CalendarViewModel @Inject constructor(
     private val calendar: CalendarRepository,
     private val settings: SettingsRepository,
+    private val plan: PlanRepository,
     private val clock: Clock,
 ) : ViewModel() {
     private val _sync = MutableStateFlow<SyncUi>(SyncUi.Idle)
@@ -72,6 +75,8 @@ class CalendarViewModel @Inject constructor(
 
     fun refresh() = launchSync { calendar.sync() }
 
+    fun onConsentResult(data: Intent?) = launchSync { calendar.finishConsent(data) }
+
     fun setCalendarSelected(id: String, on: Boolean) = launchSync {
         val next = if (on) selected.value + id else selected.value - id
         calendar.setSelection(next)
@@ -80,7 +85,10 @@ class CalendarViewModel @Inject constructor(
     private fun launchSync(block: suspend () -> SyncResult) = viewModelScope.launch {
         _sync.value = SyncUi.Syncing
         _sync.value = when (val r = block()) {
-            SyncResult.Synced -> SyncUi.Idle
+            SyncResult.Synced -> {
+                plan.replan() // fixed commitments may have changed
+                SyncUi.Idle
+            }
             is SyncResult.NeedsConsent -> SyncUi.NeedsConsent(r.sender)
             is SyncResult.Failed -> SyncUi.Failed(r.message)
         }

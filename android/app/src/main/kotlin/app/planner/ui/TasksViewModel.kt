@@ -9,6 +9,7 @@ import app.planner.model.TaskStatus
 import app.planner.model.TemplateItem
 import app.planner.model.WeeklyTemplate
 import app.planner.model.tasksForToday
+import app.planner.plan.PlanRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 class TasksViewModel @Inject constructor(
     private val tasks: TaskRepository,
     private val settings: SettingsRepository,
+    private val plan: PlanRepository,
     private val clock: Clock,
 ) : ViewModel() {
     val today: StateFlow<List<Task>> = tasks.tasks
@@ -45,13 +47,19 @@ class TasksViewModel @Inject constructor(
     private val _generated = MutableStateFlow<String?>(null)
     val generated: StateFlow<String?> = _generated
 
-    fun save(task: Task) = viewModelScope.launch { tasks.save(task) }
+    fun save(task: Task) = viewModelScope.launch {
+        tasks.save(task)
+        plan.replan()
+    }
 
     fun toggleDone(task: Task) = viewModelScope.launch {
         tasks.setStatus(task.id, if (task.status == TaskStatus.DONE) TaskStatus.OPEN else TaskStatus.DONE)
     }
 
-    fun drop(task: Task) = viewModelScope.launch { tasks.setStatus(task.id, TaskStatus.DROPPED) }
+    fun drop(task: Task) = viewModelScope.launch {
+        tasks.setStatus(task.id, TaskStatus.DROPPED)
+        plan.replan()
+    }
 
     fun saveTemplateItem(item: TemplateItem) = viewModelScope.launch {
         val current = template.value.items
@@ -65,6 +73,7 @@ class TasksViewModel @Inject constructor(
 
     fun generateWeek(weeksAhead: Long) = viewModelScope.launch {
         val created = tasks.generateFromTemplate(template.value, weeksAhead)
+        if (created > 0) plan.replan()
         _generated.value = if (created == 0) "Nothing new: those tasks already exist" else "Added $created task${if (created == 1) "" else "s"}"
     }
 
