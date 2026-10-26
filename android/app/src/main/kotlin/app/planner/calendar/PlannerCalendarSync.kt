@@ -63,8 +63,8 @@ class PlannerCalendarSync @Inject constructor(
         val remote = client.listEvents(token, calendarId, from, to).mapNotNull { e ->
             (e.timing as? EventTiming.Timed)?.let { RemoteEvent(e.id, e.plannerBlockId, it.start, it.end) }
         }
+        // Task blocks and commitments both appear on the Planner calendar.
         val rows = blocks.between(today.minusDays(1).toString(), today.plusDays(WINDOW_DAYS).toString())
-            .filter { it.kind == "TASK" }
         val titles = tasks.snapshot().associate { it.id to it.title }
         val byId = rows.associateBy { it.id }
 
@@ -136,7 +136,7 @@ class PlannerCalendarSync @Inject constructor(
     }
 
     private fun titleOf(block: BlockEntity, titles: Map<Long, String>): String =
-        block.taskId?.let(titles::get) ?: "Planned block"
+        block.taskId?.let(titles::get) ?: block.label ?: "Planned block"
 
     private fun instantOf(date: String, minuteOfDay: Int): Instant =
         LocalDate.parse(date).atTime(minuteOfDay / 60, minuteOfDay % 60).atZone(clock.zone).toInstant()
