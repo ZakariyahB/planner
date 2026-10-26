@@ -46,6 +46,9 @@ android {
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
     }
+
+    // The system prompt and tool definitions live in docs/prompts and are bundled as-is.
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("../docs/prompts"))
 }
 
 dependencies {
@@ -54,6 +57,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.play.services.auth)
     implementation(libs.androidx.health.connect)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.id)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
