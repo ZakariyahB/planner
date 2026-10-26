@@ -132,7 +132,7 @@ The Today screen opens with a **Get set up** card that lists each of these with 
 | Set this week's Fajr | Anchors prayer-based tasks. A rough time is enough | Tap **Set**. |
 | Allow notifications | Plan ready, lights-out, work stops | Tap **Allow**. If Android won't ask again, it opens the app's notification settings instead. |
 | Allow exact alarms | Reminders arrive on time, not minutes late | Opens **Alarms and reminders**: switch Planner on. |
-| Allow usage access | Counts your social-media minutes | Opens **Usage access**: choose Planner and switch it on. Android has no pop-up for this one. |
+| Allow usage access | Counts your social-media minutes, including the past week from Android's usage history | Opens **Usage access**: choose Planner and switch it on. Android has no pop-up for this one. |
 
 Two more things worth doing once:
 

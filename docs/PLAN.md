@@ -92,7 +92,7 @@ Defaults (all editable in Settings):
 - 15-min buffer after each block;
 - 15-min prayer buffers (Dhuhr/Asr/Maghrib/Isha);
 - **Friday after 17:00 kept clear**;
-- Sunday catch-up block of 2h.
+- catch-up days: any day by default (Day rules can limit them, e.g. Sunday only), with a 2h weekly catch-up allowance.
 
 Placement:
 - earliest-deadline-first, then priority;
@@ -100,7 +100,7 @@ Placement:
 - never split a task;
 - when readiness is amber or red, put the hardest task first.
 
-Overflow: a task that doesn't fit goes to Sunday catch-up. It is never stacked onto tomorrow.
+Overflow: a task that doesn't fit before it is due goes to the next catch-up day with room. With the default (every day) that is usually tomorrow; more overflow than the weekly allowance is flagged on Today.
 
 Readiness bands set the load:
 - 70+: full plan;
@@ -186,7 +186,7 @@ SMALL means every op is a same-day move of ≤ 60 min, with nothing dropped and 
 |---|---|
 | End of first sleep block (Health Connect change) | Provisional readiness + back-to-bed advice |
 | Phone unlocked after final wake | Morning brief + final readiness; low readiness → proposal to cut the load |
-| Every 15 min (WorkManager) | Social usage refresh; notify at 50/80/100% of budget |
+| Every 15 min (WorkManager) | Social usage refresh (plus any of the past 7 days not yet saved, from Android's usage history); notify at 50/80/100% of budget |
 | 21:00 (22:00 packed) | "Work stops": done count, what moved |
 | 21:30 | Social-time daily summary |
 | 23:30 | Tomorrow's plan ready (AI draft) + forecast |
@@ -198,9 +198,9 @@ Each routine has its own notification channel, so he can mute any one.
 ## Google Calendar (fixed commitments only)
 
 - Timed events on the calendars he selects become **fixed blocks** the scheduler works around: classes, meetings, interviews, BoL, Halaqa, Sh Anass, the Arabic lesson. Synced on open, every 30 min and before every plan or replan.
-- All-day events are ignored for planning. They can be shown as a strip at the top of the day for context.
+- All-day events never become fixed blocks. They are shown above the day and are tasks he ticks off for each day they cover, with no time block; ticks are kept on the phone and the event is never changed. The assistant sees them, and whether they are done, through `get_day`.
 - **Calendar picker in onboarding and Settings.** By default, `Lectures` is unticked as fixed, because he watches recordings rather than attending live. The app's own `Planner` calendar is always excluded from the fixed set.
-- Nothing is imported as a task. He adds tasks himself (in-app, by voice, or by chat, e.g. "add PintOS 3h, due Fri"). Recurring ones, like weekly lecture catch-ups, live in the in-app weekly template.
+- Apart from those all-day tick-offs, nothing is imported as a task. He adds tasks himself (in-app, by voice, or by chat, e.g. "add PintOS 3h, due Fri"). Recurring ones, like weekly lecture catch-ups, live in the in-app weekly template.
 
 ## Configuration contract (the setup guide depends on these exact names)
 
@@ -239,10 +239,10 @@ Each routine has its own notification channel, so he can mute any one.
 - **Scheduler unit tests** (JVM), written from his real week as fixtures:
   - Mon 26 Oct;
   - Wed 28 Oct with BoL 10:15–12:45 and Halaqa 14:00–16:30;
-  - "Halaqa +60 min" → the OS worksheet still fits before 21:00 and the CW remainder goes to Sunday;
+  - "Halaqa +60 min" → the OS worksheet still fits before 21:00 and with Sunday as the only catch-up day, the CW remainder goes to Sunday (by default it goes to the next day with room);
   - Friday after 17:00 stays empty;
   - Sat "after Asr" uses Friday's Asr.
-- **Calendar mapping tests:** timed events become fixed blocks; all-day events are ignored; deselected calendars (e.g. Lectures) are ignored; Planner calendar events are never treated as fixed.
+- **Calendar mapping tests:** timed events become fixed blocks; all-day events are not fixed blocks but become per-day tick-off tasks; deselected calendars (e.g. Lectures) are ignored; Planner calendar events are never treated as fixed.
 - **Readiness tests** on anonymised fixtures shaped like his Takeout data: 3h33m single block; 4h42m + 2h10m split; a slept-through night.
 - **Worker tests** (vitest + Miniflare):
   - a request with the wrong email is rejected;

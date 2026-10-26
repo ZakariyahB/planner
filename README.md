@@ -10,6 +10,7 @@ Personal Android day planner with an AI coach. Build plan: [docs/PLAN.md](docs/P
 | Worker local dev | `cd worker && npx wrangler dev` |
 | Scheduler tests (no Android SDK needed) | `cd android && ./gradlew :core:scheduler:test -PcoreOnly` |
 | App build + all tests | `cd android && ./gradlew :core:scheduler:test :app:assembleDebug :app:testDebugUnitTest` |
+| Install the release build on a connected phone | `cd android && ./gradlew :app:installRelease` |
 
 Gradle needs JDK 17–21 (Android Studio's bundled JDK is fine). Kotlin 2.0 does not run on JDK 25.
 
@@ -54,10 +55,12 @@ The system prompt and tool definitions live in `docs/prompts` and are bundled in
 
 ## Interface
 
-Four destinations: **Today**, **Plan**, **Tasks**, and **Reflect**. Today is the daily task list with a compact next-task card and visible progress actions. Plan holds the day, three-day and week calendars, with all-day events and untimed tasks above the hourly schedule. Blue blocks are flexible tasks; neutral blocks are fixed commitments. **AI chat** opens over the current screen from the bar above navigation. Settings are under the gear icon.
+Four destinations: **Today**, **Plan**, **Tasks**, and **Reflect**; the top bar names the one you are on. Today is the daily task list with a compact next-task card and visible progress actions. All-day calendar events are tasks to tick off there (no time block, the calendar is never changed). Plan holds the day, three-day and week calendars, with the view switch and **Adjust** on its top row and all-day events and untimed tasks above the hourly schedule. Blue blocks are flexible tasks; neutral blocks are fixed commitments. **AI chat** opens over the current screen from the bar above navigation. The weekly review opens full screen from Reflect or its Sunday notification. Settings are under the gear icon.
+
+Work that misses its due day goes to the next catch-up day with room; every day is one by default, and Settings → Day rules can limit them. Social time is read from Android's usage history, including the week before usage access was turned on.
 
 The interface uses neutral surfaces, blue highlights, serif headings, and light/dark/system appearance. The design rationale is in [docs/design/REDESIGN.md](docs/design/REDESIGN.md).
 
 ## Status
 
-See the milestone list in docs/PLAN.md. M0 to M7 are written. The Android interface has been redesigned around the daily task list, calendar and contextual coach. The Android debug build, core tests and Android lint are checked; device-specific permissions and Google/Health Connect setup still follow [docs/SETUP.md](docs/SETUP.md). See [docs/MANUAL.md](docs/MANUAL.md) for day-to-day use.
+See the milestone list in docs/PLAN.md. M0 to M7 are written. The Android interface has been redesigned around the daily task list, calendar and contextual coach. The debug and release builds and the core tests are checked, and the latest release build has been run on the phone; device-specific permissions and Google/Health Connect setup still follow [docs/SETUP.md](docs/SETUP.md). See [docs/MANUAL.md](docs/MANUAL.md) for day-to-day use.
