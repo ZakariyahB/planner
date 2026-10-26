@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.sleep.SleepRepository
+import app.planner.social.SocialEffects
 
 private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Calendar"), TASKS("Tasks"), ASK("Ask") }
 
@@ -43,6 +44,7 @@ fun PlannerRoot() {
     val planVm: PlanViewModel = hiltViewModel()
     val readinessVm: ReadinessViewModel = hiltViewModel()
     val chatVm: ChatViewModel = hiltViewModel()
+    SocialEffects()
 
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
