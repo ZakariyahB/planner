@@ -70,6 +70,14 @@ fun CalendarsPage(calVm: CalendarViewModel, planVm: PlanViewModel, onConnect: ()
                 }
             }
         }
+        if (calendars.isEmpty() && lastSynced != null) {
+            item {
+                Text(
+                    "Google Calendar didn't list any calendars for this account. Check that you chose the right account, then tap Sync now.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         if (calendars.isNotEmpty()) {
             item {
                 Text(
@@ -139,6 +147,7 @@ fun SleepPage(readinessVm: ReadinessViewModel, onAllowHealth: () -> Unit) {
 @Composable
 fun AssistantPage(chatVm: ChatViewModel) {
     val spend by chatVm.spendGbp.collectAsStateWithLifecycle()
+    val problem by chatVm.problem.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Page {
@@ -155,6 +164,7 @@ fun AssistantPage(chatVm: ChatViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     OutlinedButton(onClick = { chatVm.signIn(context) }) { Text("Sign in for the assistant") }
+                    problem?.let { Text(it.message, color = MaterialTheme.colorScheme.error) }
                 }
                 Text(
                     "The assistant sees summaries of your plan, tasks and sleep, never raw sleep data. Planning, ticking and the calendar work without it.",
