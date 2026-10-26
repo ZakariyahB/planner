@@ -17,7 +17,7 @@ import app.planner.model.Task
 import java.time.ZoneId
 
 @Composable
-fun TasksScreen(tasksVm: TasksViewModel, planVm: PlanViewModel, onEdit: (Task) -> Unit, onAdd: () -> Unit) {
+fun TasksScreen(tasksVm: TasksViewModel, planVm: PlanViewModel, onEdit: (Task) -> Unit, onAdd: () -> Unit, onLogProgress: (Task) -> Unit) {
     val zone = ZoneId.systemDefault()
     val tasks by tasksVm.all.collectAsStateWithLifecycle()
     val blocks by planVm.todayBlocks.collectAsStateWithLifecycle()
@@ -29,7 +29,7 @@ fun TasksScreen(tasksVm: TasksViewModel, planVm: PlanViewModel, onEdit: (Task) -
         item { Text("All tasks", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp)) }
         if (tasks.isEmpty()) item { Text("No tasks yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         items(tasks, key = { it.id }) { task ->
-            TaskRow(task, zone, blocks[task.id], onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) })
+            TaskRow(task, zone, blocks[task.id], onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) }, onLongClick = { onLogProgress(task) })
         }
         item { Button(onClick = onAdd, modifier = Modifier.padding(vertical = 8.dp)) { Text("Add task") } }
     }

@@ -1,6 +1,7 @@
 package app.planner.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ fun TodayScreen(
     onAllowHealth: () -> Unit,
     onEdit: (Task) -> Unit,
     onAdd: () -> Unit,
+    onLogProgress: (Task) -> Unit,
 ) {
     val zone = ZoneId.systemDefault()
     val tasks by tasksVm.today.collectAsStateWithLifecycle()
@@ -106,7 +108,7 @@ fun TodayScreen(
             item { Text("Nothing due. Add a task, or generate this week from the weekly template in Settings.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(tasks, key = { it.id }) { task ->
-            TaskRow(task, zone, blocks[task.id], onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) })
+            TaskRow(task, zone, blocks[task.id], onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) }, onLongClick = { onLogProgress(task) })
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
@@ -124,11 +126,17 @@ fun TodayScreen(
     }
 }
 
+/** Tap edits the task; a long press (not for finished tasks) is for logging progress on it. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TaskRow(task: Task, zone: ZoneId, block: Block?, onToggle: () -> Unit, onClick: () -> Unit) {
+fun TaskRow(task: Task, zone: ZoneId, block: Block?, onToggle: () -> Unit, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val done = task.status == TaskStatus.DONE
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        Modifier.fillMaxWidth().combinedClickable(
+            onClick = onClick,
+            onLongClickLabel = "Log progress",
+            onLongClick = if (done) null else onLongClick,
+        ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = done, onCheckedChange = { onToggle() })
