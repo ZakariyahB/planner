@@ -1,6 +1,7 @@
 package app.planner.model
 
 import java.time.Instant
+import java.time.LocalTime
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -25,6 +26,8 @@ data class Task(
     val availableFrom: Instant? = null,
     val anchor: Anchor? = null,
     val dueAt: Instant? = null,
+    /** "Do it at this time" on its due day (or today if undated). Optional; unset lets the planner choose. */
+    val startAt: LocalTime? = null,
     val priority: Priority = Priority.NORMAL,
     val source: TaskSource = TaskSource.MANUAL,
     val status: TaskStatus = TaskStatus.OPEN,

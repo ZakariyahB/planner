@@ -35,7 +35,11 @@ data class WeekPlan(
     val loadCut: List<Task>,
     /** More overflow than the Sunday catch-up allowance. */
     val catchUpExceeded: Boolean,
+    /** Tasks whose chosen start time couldn't be honoured; they were planned normally instead. */
+    val pinConflicts: List<PinConflict> = emptyList(),
 )
+
+data class PinConflict(val task: Task, val reason: String)
 
 internal class DayLayout(ctx: DayContext, private val rules: DayRules, honourNotBefore: Boolean) {
     val fixedSlots: List<Slot> = ctx.fixed.mapNotNull { e ->
@@ -141,7 +145,13 @@ class Scheduler(val rules: DayRules = DayRules()) {
         var loadCut = emptyList<Task>()
         val catchUpDate = days.firstOrNull { it.date.dayOfWeek == DayOfWeek.SUNDAY }?.date
 
-        days.forEachIndexed { index, ctx ->
+        val pinned = mutableMapOf<LocalDate, MutableList<Block>>()
+        val pinConflicts = mutableListOf<PinConflict>()
+        pinTasks(days, remaining, pinned, pinConflicts)
+        placed += pinned.values.flatten()
+
+        days.forEachIndexed { index, base ->
+            val ctx = base.copy(existing = base.existing + pinned[base.date].orEmpty())
             val isCatchUp = ctx.date == catchUpDate
             val isFirst = index == 0 && band != ReadinessBand.GREEN
             var candidates = (if (isCatchUp) waiting + remaining else remaining).filter { availableOn(it, ctx) }
@@ -179,7 +189,59 @@ class Scheduler(val rules: DayRules = DayRules()) {
             unscheduled = remaining + waiting,
             loadCut = loadCut,
             catchUpExceeded = everOverflowed.sumOf { it.estMin } > rules.sundayCatchUpMin,
+            pinConflicts = pinConflicts,
         )
+    }
+
+    /**
+     * Places tasks that have a chosen start time exactly there, as locked user blocks, before anything
+     * else is planned. The chosen time may fall outside the work window, but not on a fixed event,
+     * prayer time, another block, or the past. Pins beyond the planned days are left alone; pins that
+     * can't be honoured stay in [remaining] to be planned normally and are reported in [conflicts].
+     */
+    private fun pinTasks(
+        days: List<DayContext>,
+        remaining: MutableList<Task>,
+        pinned: MutableMap<LocalDate, MutableList<Block>>,
+        conflicts: MutableList<PinConflict>,
+    ) {
+        val firstDay = days.firstOrNull() ?: return
+        val wanted = remaining.filter { it.startAt != null }
+            .sortedWith(compareBy<Task>({ dueDate(it, firstDay.zone) ?: firstDay.date }, { it.startAt }, { it.id }))
+        for (task in wanted) {
+            val date = dueDate(task, firstDay.zone) ?: firstDay.date
+            val base = days.firstOrNull { it.date == date }
+            if (base == null) {
+                remaining.remove(task) // chosen day isn't in the plan; never pull it onto another day
+                continue
+            }
+            val ctx = base.copy(existing = base.existing + pinned[date].orEmpty())
+            val start = task.startAt!!.toMinuteOfDay()
+            val end = start + task.estMin
+            val reason = pinProblem(ctx, Slot(start, end))
+            if (reason != null) {
+                conflicts += PinConflict(task, reason)
+                continue
+            }
+            pinned.getOrPut(date) { mutableListOf() } +=
+                Block(
+                    taskId = task.id, date = date, start = start.toLocalTime(), end = end.toLocalTime(),
+                    locked = true, origin = BlockOrigin.USER,
+                )
+            remaining.remove(task)
+        }
+    }
+
+    private fun pinProblem(ctx: DayContext, slot: Slot): String? {
+        val layout = DayLayout(ctx, rules, honourNotBefore = false)
+        return when {
+            slot.end > 24 * 60 - 1 -> "it would run past midnight"
+            ctx.notBefore != null && slot.start < ctx.notBefore.toMinuteOfDay() -> "that time has passed"
+            layout.fixedSlots.any { it.overlaps(slot) } -> "it clashes with a fixed commitment"
+            layout.prayerSlots.any { it.overlaps(slot) } -> "it clashes with prayer time"
+            ctx.existing.any { Slot(it.start.toMinuteOfDay(), it.end.toMinuteOfDay()).overlaps(slot) } -> "it overlaps another block"
+            else -> null
+        }
     }
 
     private fun lowerBound(task: Task, ctx: DayContext): Int? {

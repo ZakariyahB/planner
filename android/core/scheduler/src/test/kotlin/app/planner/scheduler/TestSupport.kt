@@ -19,7 +19,7 @@ fun instant(date: String, time: String): Instant = date(date).atTime(time(time))
 fun fixed(id: String, date: String, start: String, end: String) =
     FixedEvent(id, "main", id, instant(date, start), instant(date, end))
 
-fun task(id: Long, title: String, estMin: Int, due: String? = null, priority: app.planner.model.Priority = app.planner.model.Priority.NORMAL, from: Instant? = null, anchor: app.planner.model.Anchor? = null) =
+fun task(id: Long, title: String, estMin: Int, due: String? = null, priority: app.planner.model.Priority = app.planner.model.Priority.NORMAL, from: Instant? = null, anchor: app.planner.model.Anchor? = null, startAt: LocalTime? = null) =
     Task(
         id = id,
         title = title,
@@ -28,6 +28,7 @@ fun task(id: Long, title: String, estMin: Int, due: String? = null, priority: ap
         priority = priority,
         availableFrom = from,
         anchor = anchor,
+        startAt = startAt,
     )
 
 fun prayers(dhuhr: String, asr: String, maghrib: String, isha: String, fajr: String? = null): Map<Prayer, LocalTime> =
