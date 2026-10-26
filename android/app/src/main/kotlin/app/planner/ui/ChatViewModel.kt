@@ -7,16 +7,19 @@ import app.planner.ai.AiAssistant
 import app.planner.ai.AiException
 import app.planner.ai.AiFailure
 import app.planner.ai.AiPlanService
+import app.planner.ai.AiSpendRepository
 import app.planner.ai.ChatItem
 import app.planner.ai.ChatRepository
 import app.planner.ai.IdTokenProvider
 import app.planner.ai.Proposal
 import app.planner.ai.Role
 import app.planner.ai.TokenResult
+import app.planner.plan.PlanMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -31,9 +34,16 @@ class ChatViewModel @Inject constructor(
     private val chat: ChatRepository,
     private val changes: AiPlanService,
     private val tokens: IdTokenProvider,
+    spend: AiSpendRepository,
 ) : ViewModel() {
     val items: StateFlow<List<ChatItem>> = chat.items
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Changes the assistant made for the user, for the Undo snackbar. */
+    val announcements: SharedFlow<PlanMessage> = changes.announcements
+
+    /** This month's AI spend in pounds. */
+    val spendGbp: StateFlow<Double> = spend.thisMonthGbp.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
     /** Big proposals waiting for Approve. */
     val proposals: StateFlow<List<Proposal>> = changes.pending
