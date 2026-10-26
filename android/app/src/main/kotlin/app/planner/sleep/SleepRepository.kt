@@ -59,6 +59,19 @@ class SleepRepository @Inject constructor(
         }
     }
 
+    /**
+     * Whether the periodic job may read sleep while the app is closed. Null when that does not apply: Health
+     * Connect is missing or the sleep permission itself is not granted yet.
+     */
+    suspend fun backgroundReadGranted(): Boolean? {
+        if (healthStatus() != HealthStatus.Ready) return null
+        return try {
+            BACKGROUND_PERMISSION in HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** Replaces the Health Connect rows of the last three weeks with what Health Connect has now. */
     suspend fun syncFromHealthConnect(): SleepSyncResult {
         val status = healthStatus()
@@ -110,6 +123,9 @@ class SleepRepository @Inject constructor(
 
     companion object {
         private const val LOOKBACK_DAYS = 21L
+
+        /** Lets the 15-minute job read sleep while the app is closed. Not every Health Connect version offers it. */
+        const val BACKGROUND_PERMISSION = "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
 
         /** Request these through Health Connect's permission contract. */
         val PERMISSIONS: Set<String> = setOf(HealthPermission.getReadPermission(SleepSessionRecord::class))
