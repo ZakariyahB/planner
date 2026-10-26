@@ -11,7 +11,10 @@ import app.planner.model.TaskStatus
 import app.planner.model.Weeks
 import app.planner.plan.PlanRepository
 import app.planner.plan.PlanSummary
+import app.planner.readiness.BackToBedAdvice
 import app.planner.readiness.ReadinessBand
+import app.planner.readiness.ReadinessEngine
+import app.planner.readiness.ReadinessInputs
 import app.planner.readiness.ReadinessState
 import app.planner.scheduler.Block
 import app.planner.scheduler.BlockKind
@@ -21,6 +24,7 @@ import app.planner.sleep.SleepRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Clock
 import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -79,6 +83,28 @@ class RoutineRunner @Inject constructor(
         } finally {
             withContext(NonCancellable) { guard("reschedule") { scheduler.rescheduleAll() } }
         }
+    }
+
+    /**
+     * Settings' "Send now": a timed routine runs for real. The two driven by last night's sleep need a night of
+     * data to fire on their own, so they post a sample built from made-up numbers, marked as a test.
+     */
+    suspend fun sendNow(routine: Routine) {
+        if (routine.timed) {
+            guard("send now") { fire(routine) }
+            return
+        }
+        val text = when (routine) {
+            Routine.PROVISIONAL_READINESS -> {
+                val readiness = ReadinessEngine.score(ReadinessInputs(asleepMin = 210, debtMin = 300, lightsOutDelayMin = 72, doneRatio = 0.8))
+                NotificationTexts.provisionalReadiness(210, readiness, BackToBedAdvice(210, rules.wake))
+            }
+            else -> {
+                val readiness = ReadinessEngine.score(ReadinessInputs(asleepMin = 300, debtMin = 360, lightsOutDelayMin = 72, doneRatio = 0.7))
+                NotificationTexts.morningBrief(readiness, DayOutline(5, LocalTime.of(9, 30), "PintOS"), loadCutCount = 2)
+            }
+        }
+        notifier.post(routine, text.copy(title = "Test: ${text.title}"))
     }
 
     /** The 15-minute job. Each step is independent: a failure in one never stops the others. */

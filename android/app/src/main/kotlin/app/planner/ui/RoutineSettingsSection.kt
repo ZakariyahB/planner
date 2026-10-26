@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -110,12 +111,14 @@ fun RoutineSettingsSection(vm: RoutinePrefsViewModel = hiltViewModel()) {
         }
         Routine.entries.forEach { routine ->
             val info = routine.info
-            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(info.label, style = MaterialTheme.typography.bodyLarge)
                     Text(info.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Switch(checked = enabled[routine] != false, onCheckedChange = { vm.setEnabled(routine, it) })
+                val on = enabled[routine] != false
+                TextButton(onClick = { vm.sendNow(routine) }, enabled = on && notificationsOn) { Text("Send now") }
+                Switch(checked = on, onCheckedChange = { vm.setEnabled(routine, it) })
             }
         }
     }
