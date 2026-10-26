@@ -15,10 +15,13 @@ data class DayRules(
     val packedFixedMinutes: Int = 180,
     val fridayClearFrom: LocalTime = LocalTime.of(17, 0),
     val sundayCatchUpMin: Int = 120,
+    /** Cap on planned task minutes per day, so earliest-deadline-first doesn't pile the week onto Monday. */
+    val maxTaskMinutesPerDay: Int = 360,
 ) {
     init {
         require(blockBufferMin >= 0 && prayerBufferMin >= 0) { "buffers must be non-negative" }
         require(workStop <= workStopPacked) { "packed work stop must not be earlier than normal" }
+        require(maxTaskMinutesPerDay > 0) { "daily cap must be positive" }
     }
 
     /** Focused work stops later on days with at least [packedFixedMinutes] of fixed events. */
