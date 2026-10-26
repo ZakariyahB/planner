@@ -3,6 +3,8 @@ package app.planner.data
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
@@ -12,7 +14,9 @@ import app.planner.scheduler.BlockOrigin
 import java.time.LocalDate
 import java.time.LocalTime
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "blocks", indices = [Index("date")])
 data class BlockEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -84,4 +88,14 @@ interface BlockDao {
 
     @Query("DELETE FROM blocks WHERE taskId = :taskId")
     suspend fun deleteForTask(taskId: Long)
+
+    @Query("SELECT * FROM blocks")
+    suspend fun all(): List<BlockEntity>
+
+    @Query("DELETE FROM blocks")
+    suspend fun clear()
+
+    /** For restoring a backup: rows keep the ids they had. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplacing(rows: List<BlockEntity>)
 }
