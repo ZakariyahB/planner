@@ -1,5 +1,6 @@
 import type { Deps, Env } from "./index";
-import { getSpendGbp } from "./spend";
+import { costGbp, type Usage } from "./pricing";
+import { addSpendGbp, getSpendGbp } from "./spend";
 
 const UPSTREAM_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_CHAT_MODEL = "claude-sonnet-5-5";
@@ -74,8 +75,40 @@ export async function forwardMessages(req: Request, env: Env, deps: Deps): Promi
   if (upstream.status === 401 || upstream.status === 403 || upstream.status >= 500) {
     return json({ error: `upstream error (${upstream.status})` }, 502);
   }
-  return new Response(await upstream.text(), {
-    status: upstream.status,
-    headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
-  });
+  const bodyText = await upstream.text();
+  const headers: Record<string, string> = {
+    "content-type": upstream.headers.get("content-type") ?? "application/json",
+  };
+  if (upstream.ok) {
+    const usage = readUsage(bodyText);
+    if (usage) {
+      const cost = costGbp(model, usage);
+      await addSpendGbp(env.USAGE, now, cost);
+      headers["X-Planner-Usage"] = JSON.stringify({
+        model,
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+        cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+        costGbp: cost,
+        monthGbp: await getSpendGbp(env.USAGE, now),
+      });
+    }
+  }
+  return new Response(bodyText, { status: upstream.status, headers });
+}
+
+function readUsage(bodyText: string): Usage | null {
+  try {
+    const usage = (JSON.parse(bodyText) as { usage?: Partial<Usage> }).usage;
+    if (typeof usage?.input_tokens !== "number" || typeof usage.output_tokens !== "number") return null;
+    return {
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens,
+      cache_read_input_tokens: usage.cache_read_input_tokens,
+    };
+  } catch {
+    return null;
+  }
 }

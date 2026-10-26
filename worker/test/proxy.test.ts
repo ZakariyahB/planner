@@ -203,3 +203,55 @@ describe("monthly spend cap", () => {
     expect((await call(s, chat)).status).toBe(402);
   });
 });
+
+describe("usage reporting", () => {
+  it("adds the call's cost to this month's total", async () => {
+    const s = setup(() => anthropicOk({ input_tokens: 100_000, output_tokens: 10_000 }));
+    await call(s, chat); // sonnet: (100k * $3 + 10k * $15) / 1M = $0.45 = about £0.36
+    expect(Number(s.kv.store.get("spend:2026-10"))).toBeCloseTo(0.36, 4);
+  });
+
+  it("tells the app what the call used and cost, and the month so far", async () => {
+    const s = setup(() => anthropicOk({ input_tokens: 100_000, output_tokens: 10_000 }));
+    s.kv.store.set("spend:2026-10", "1");
+    const usage = JSON.parse((await call(s, chat)).headers.get("X-Planner-Usage")!);
+    expect(usage).toMatchObject({ model: "claude-sonnet-5-5", inputTokens: 100_000, outputTokens: 10_000 });
+    expect(usage.costGbp).toBeCloseTo(0.36, 4);
+    expect(usage.monthGbp).toBeCloseTo(1.36, 4);
+  });
+
+  it("prices scheduled runs at the cheaper model's rate", async () => {
+    const s = setup(() => anthropicOk({ input_tokens: 100_000, output_tokens: 10_000 }));
+    const usage = JSON.parse((await call(s, chat, { "X-Planner-Purpose": "scheduled" })).headers.get("X-Planner-Usage")!);
+    expect(usage.model).toBe("claude-haiku-5-5");
+    expect(usage.costGbp).toBeCloseTo(0.12, 4); // (100k * $1 + 10k * $5) / 1M * 0.8
+  });
+
+  it("counts cache reads and writes", async () => {
+    const s = setup(() => anthropicOk({ input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 1_000_000, cache_read_input_tokens: 1_000_000 }));
+    const usage = JSON.parse((await call(s, chat)).headers.get("X-Planner-Usage")!);
+    expect(usage).toMatchObject({ cacheWriteTokens: 1_000_000, cacheReadTokens: 1_000_000 });
+    expect(usage.costGbp).toBeCloseTo((3.75 + 0.3) * 0.8, 4);
+  });
+
+  it("records nothing for a failed call", async () => {
+    const s = setup(() => new Response("{}", { status: 429 }));
+    const res = await call(s, chat);
+    expect(res.headers.get("X-Planner-Usage")).toBeNull();
+    expect(s.kv.store.size).toBe(0);
+  });
+
+  it("copes with a response that has no usage", async () => {
+    const s = setup(() => new Response(JSON.stringify({ id: "msg_2" }), { status: 200 }));
+    const res = await call(s, chat);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Planner-Usage")).toBeNull();
+  });
+
+  it("stores only the running total, never what was said", async () => {
+    const s = setup();
+    await call(s, { ...chat, messages: [{ role: "user", content: "my secret plans" }] });
+    expect([...s.kv.store.keys()]).toEqual(["spend:2026-10"]);
+    expect(JSON.stringify([...s.kv.store.values()])).not.toContain("secret");
+  });
+});
