@@ -170,6 +170,23 @@ private fun DayColumn(
             drawLine(lineColour, Offset(0f, 0f), Offset(0f, size.height), strokeWidth = 1f)
         }
 
+        day.asleep.forEach { a ->
+            val s = minuteOn(day.date, a.start, zone)
+            val en = minuteOn(day.date, a.end, zone)
+            if (en > s) {
+                Box(
+                    Modifier
+                        .offset(y = HourHeight * (s / 60f))
+                        .height(HourHeight * ((en - s) / 60f))
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f))
+                        .padding(3.dp),
+                ) {
+                    Text("Asleep", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
         day.fixed.forEach { e ->
             val s = minuteOn(day.date, e.start, zone)
             val en = minuteOn(day.date, e.end, zone)
