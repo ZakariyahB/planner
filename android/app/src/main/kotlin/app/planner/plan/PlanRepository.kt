@@ -11,6 +11,7 @@ import app.planner.calendar.PrayerTimes
 import app.planner.data.BlockDao
 import app.planner.data.ChangeLogDao
 import app.planner.data.ChangeLogEntity
+import app.planner.data.DayRulesRepository
 import app.planner.data.SettingsRepository
 import app.planner.data.SleepDao
 import app.planner.data.TaskRepository
@@ -97,10 +98,11 @@ class PlanRepository @Inject constructor(
     private val settings: SettingsRepository,
     private val readiness: ReadinessRepository,
     private val sleepDao: SleepDao,
+    private val dayRules: DayRulesRepository,
     private val plannerSync: PlannerCalendarSync,
     private val clock: Clock,
 ) {
-    val scheduler = Scheduler()
+    private suspend fun scheduler(): Scheduler = Scheduler(dayRules.current())
 
     /** Replans can be triggered from several places at once; two running together would double-place tasks. */
     private val replanLock = Mutex()
@@ -204,7 +206,7 @@ class PlanRepository @Inject constructor(
         val band = readiness.finalBandToday() ?: ReadinessBand.GREEN
         val approved = settings.loadCutApprovedOn.first() == today
         val plannable = allTasks.filter { it.status == TaskStatus.OPEN || it.status == TaskStatus.PARTIAL }
-        val week = scheduler.planWeek(contexts, plannable, now, band, applyLoadCut = approved)
+        val week = scheduler().planWeek(contexts, plannable, now, band, applyLoadCut = approved)
 
         if (clear.isNotEmpty()) blocks.delete(clear)
         blocks.upsertAll(week.blocks.map { it.toEntity() })
@@ -240,12 +242,12 @@ class PlanRepository @Inject constructor(
 
     /** Checks a change against the rules without applying it. */
     suspend fun check(changeSet: ChangeSet): Validation =
-        scheduler.validate(changeSet, stateFor(affectedDates(changeSet)))
+        scheduler().validate(changeSet, stateFor(affectedDates(changeSet)))
 
     /** Validates a change and, if it is allowed, applies it as one logged change that can be undone. */
     suspend fun applyChanges(changeSet: ChangeSet, summary: String): MoveResult {
         val state = stateFor(affectedDates(changeSet))
-        val verdict = scheduler.validate(changeSet, state)
+        val verdict = scheduler().validate(changeSet, state)
         if (!verdict.ok) {
             return MoveResult.Rejected(verdict.violations.filter { it.hard }.map { it.message }.distinct())
         }
