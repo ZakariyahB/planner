@@ -262,20 +262,23 @@ private fun BlockBox(
             .pointerInput(block.id, startMin, endMin) {
                 detectTapGestures(onTap = { onSelect(block) })
             }
-            .pointerInput(block.id, startMin, endMin) {
-                detectDragGestures(
-                    onDragEnd = {
-                        val delta = snapped(moveDy)
-                        moveDy = 0f
-                        if (delta != 0) onMove(block.id, block.date, startMin + delta, endMin + delta)
-                    },
-                    onDragCancel = { moveDy = 0f },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        moveDy += amount.y
-                    },
-                )
-            },
+            .then(
+                // A locked block stays put: unlock it from its menu to move or resize it.
+                if (block.locked) Modifier else Modifier.pointerInput(block.id, startMin, endMin) {
+                    detectDragGestures(
+                        onDragEnd = {
+                            val delta = snapped(moveDy)
+                            moveDy = 0f
+                            if (delta != 0) onMove(block.id, block.date, startMin + delta, endMin + delta)
+                        },
+                        onDragCancel = { moveDy = 0f },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            moveDy += amount.y
+                        },
+                    )
+                },
+            ),
     ) {
         Column(Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) {
             Text(
@@ -287,27 +290,29 @@ private fun BlockBox(
             )
             Text("${timeFormat.format(block.start)}–${timeFormat.format(block.end)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(14.dp)
-                .pointerInput(block.id, startMin, endMin) {
-                    detectDragGestures(
-                        onDragEnd = {
-                            val delta = snapped(resizeDy)
-                            resizeDy = 0f
-                            if (delta != 0) onMove(block.id, block.date, startMin, endMin + delta)
-                        },
-                        onDragCancel = { resizeDy = 0f },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            resizeDy += amount.y
-                        },
-                    )
-                },
-        ) {
-            Box(Modifier.align(Alignment.Center).width(24.dp).height(3.dp).clip(MaterialTheme.shapes.extraSmall).background(accent))
+        if (!block.locked) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .pointerInput(block.id, startMin, endMin) {
+                        detectDragGestures(
+                            onDragEnd = {
+                                val delta = snapped(resizeDy)
+                                resizeDy = 0f
+                                if (delta != 0) onMove(block.id, block.date, startMin, endMin + delta)
+                            },
+                            onDragCancel = { resizeDy = 0f },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                resizeDy += amount.y
+                            },
+                        )
+                    },
+            ) {
+                Box(Modifier.align(Alignment.Center).width(24.dp).height(3.dp).clip(MaterialTheme.shapes.extraSmall).background(accent))
+            }
         }
     }
 }
