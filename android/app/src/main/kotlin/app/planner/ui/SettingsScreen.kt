@@ -134,6 +134,9 @@ fun SettingsScreen(
         }
 
         item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+        item { RoutineSettingsSection() }
+
+        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
         item { SectionTitle("Assistant") }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
