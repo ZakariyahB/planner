@@ -3,6 +3,7 @@ package app.planner.ui
 import android.Manifest
 import android.content.Intent
 import android.os.Build
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.planner.routines.AlarmClock
 import app.planner.routines.Routine
 import app.planner.routines.info
 
@@ -41,8 +43,12 @@ fun RoutineSettingsSection(vm: RoutinePrefsViewModel = hiltViewModel()) {
 
     // Permissions are changed in system screens; look again when the user comes back.
     var refresh by remember { mutableIntStateOf(0) }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        refresh++
+        vm.reschedule() // picks up an exact-alarm permission granted while the app was in the background
+    }
     val notificationsOn = remember(refresh) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+    val exactAlarms = remember(refresh) { AlarmClock.canScheduleExact(context) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.markPromptSeen()
         refresh++
@@ -71,6 +77,19 @@ fun RoutineSettingsSection(vm: RoutinePrefsViewModel = hiltViewModel()) {
                     )
                 }) { Text("Notification settings") }
             }
+        }
+        if (!exactAlarms) {
+            Text(
+                "Exact alarms are off, so timed reminders can arrive a few minutes late. " +
+                    "To fix it, open Alarms & reminders for Planner and allow setting alarms and reminders.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = {
+                context.startActivity(
+                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }) { Text("Allow exact alarms") }
         }
         Routine.entries.forEach { routine ->
             val info = routine.info
