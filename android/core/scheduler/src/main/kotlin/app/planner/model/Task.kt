@@ -1,7 +1,9 @@
 package app.planner.model
 
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -43,3 +45,14 @@ data class Task(
         const val MAX_EST_MIN = 720
     }
 }
+
+/** One copy of this task per date, each due at the end of its day. Repeated dates are collapsed. */
+fun Task.onDates(dates: Collection<LocalDate>, zone: ZoneId): List<Task> =
+    dates.distinct().sorted().map { date ->
+        copy(
+            id = 0,
+            dueAt = date.atTime(LocalTime.of(23, 59)).atZone(zone).toInstant(),
+            status = TaskStatus.OPEN,
+            templateKey = null,
+        )
+    }
