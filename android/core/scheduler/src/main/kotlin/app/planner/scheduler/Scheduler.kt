@@ -11,6 +11,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
+/** A period he was asleep, e.g. from Health Connect. Nothing is planned during it. */
+data class AsleepSpan(val start: Instant, val end: Instant)
+
 /** Everything the scheduler needs to know about one day, besides the tasks. */
 data class DayContext(
     val date: LocalDate,
@@ -21,6 +24,8 @@ data class DayContext(
     val existing: List<Block> = emptyList(),
     /** Nothing is placed before this time (used when replanning today). */
     val notBefore: LocalTime? = null,
+    /** Sleep that overlaps this day, including sleep that began the evening before. */
+    val asleep: List<AsleepSpan> = emptyList(),
 )
 
 data class DayPlan(val date: LocalDate, val blocks: List<Block>, val unplaced: List<Task>)
@@ -42,11 +47,8 @@ data class WeekPlan(
 data class PinConflict(val task: Task, val reason: String)
 
 internal class DayLayout(ctx: DayContext, private val rules: DayRules, honourNotBefore: Boolean) {
-    val fixedSlots: List<Slot> = ctx.fixed.mapNotNull { e ->
-        val s = minuteOn(ctx, e.start)
-        val en = minuteOn(ctx, e.end)
-        if (en > s) Slot(s, en) else null
-    }
+    val fixedSlots: List<Slot> = ctx.fixed.mapNotNull { e -> slotOn(ctx, e.start, e.end) }
+    val sleepSlots: List<Slot> = ctx.asleep.mapNotNull { a -> slotOn(ctx, a.start, a.end) }
     val prayerSlots: List<Slot> = ctx.prayers
         .filterKeys { it != Prayer.FAJR }
         .values
@@ -57,9 +59,15 @@ internal class DayLayout(ctx: DayContext, private val rules: DayRules, honourNot
 
     /** Time a new block may not use: fixed events and blocks plus their trailing buffer, and prayers. */
     fun busy(existing: List<Block>): List<Slot> =
-        fixedSlots.map { Slot(it.start, it.end + rules.blockBufferMin) } +
+        (fixedSlots + sleepSlots).map { Slot(it.start, it.end + rules.blockBufferMin) } +
             prayerSlots +
             existing.map { Slot(it.start.toMinuteOfDay(), it.end.toMinuteOfDay() + rules.blockBufferMin) }
+
+    private fun slotOn(ctx: DayContext, start: Instant, end: Instant): Slot? {
+        val s = minuteOn(ctx, start)
+        val e = minuteOn(ctx, end)
+        return if (e > s) Slot(s, e) else null
+    }
 
     private fun minuteOn(ctx: DayContext, instant: Instant): Int {
         val local = instant.atZone(ctx.zone)
@@ -239,6 +247,7 @@ class Scheduler(val rules: DayRules = DayRules()) {
             ctx.notBefore != null && slot.start < ctx.notBefore.toMinuteOfDay() -> "that time has passed"
             layout.fixedSlots.any { it.overlaps(slot) } -> "it clashes with a fixed commitment"
             layout.prayerSlots.any { it.overlaps(slot) } -> "it clashes with prayer time"
+            layout.sleepSlots.any { it.overlaps(slot) } -> "it falls while you're asleep"
             ctx.existing.any { Slot(it.start.toMinuteOfDay(), it.end.toMinuteOfDay()).overlaps(slot) } -> "it overlaps another block"
             else -> null
         }
