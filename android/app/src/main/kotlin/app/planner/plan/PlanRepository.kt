@@ -28,12 +28,16 @@ import app.planner.scheduler.Actor
 import app.planner.scheduler.AsleepSpan
 import app.planner.scheduler.Block
 import app.planner.scheduler.BlockDiff
+import app.planner.scheduler.BlockKind
+import app.planner.scheduler.BlockOrigin
+import app.planner.scheduler.Commitments
 import app.planner.scheduler.ChangeSet
 import app.planner.scheduler.DayContext
 import app.planner.scheduler.Op
 import app.planner.scheduler.PinConflict
 import app.planner.scheduler.PlanState
 import app.planner.scheduler.Scheduler
+import app.planner.scheduler.Validation
 import app.planner.scheduler.apply
 import app.planner.scheduler.validate
 import java.time.Clock
@@ -128,14 +132,15 @@ class PlanRepository @Inject constructor(
     fun dayViews(from: LocalDate, to: LocalDate): Flow<List<DayView>> =
         combine(blocks.observeBetween(from.toString(), to.toString()), calendar.cachedEvents, calSettings) { rows, events, cs ->
             val all = rows.map { it.toBlock() }
+            val commitments = commitmentEvents(all)
             generateSequence(from) { it.plusDays(1) }.takeWhile { it <= to }.map { date ->
-                val ctx = context(date, events, cs, existing = emptyList(), notBefore = null)
+                val ctx = context(date, events, cs, existing = emptyList(), notBefore = null, commitments = commitments)
                 DayView(
                     date = date,
                     fixed = ctx.fixed.filter { it.start.atZone(clock.zone).toLocalDate() <= date && it.end.atZone(clock.zone).toLocalDate() >= date },
                     allDay = FixedEvents.allDayOn(events, cs.selected, cs.plannerId, date),
                     prayers = ctx.prayers,
-                    blocks = all.filter { it.date == date },
+                    blocks = all.filter { it.date == date && it.kind == BlockKind.TASK },
                     colours = cs.calendars.associate { it.id to it.colorHex },
                     asleep = cs.asleep.filter { it.start.atZone(clock.zone).toLocalDate() <= date && it.end.atZone(clock.zone).toLocalDate() >= date },
                 )
@@ -165,9 +170,14 @@ class PlanRepository @Inject constructor(
         val byId = allTasks.associateBy { it.id }
 
         val kept = mutableListOf<Block>()
+        val commitments = mutableListOf<Block>()
         val clear = mutableListOf<Long>()
         for (row in blocks.fromDate(today.toString())) {
             val b = row.toBlock()
+            if (Commitments.isCommitment(b)) {
+                commitments += b // a commitment is never cleared or moved by a replan
+                continue
+            }
             val task = b.taskId?.let(byId::get)
             val inProgress = b.date == today && b.start.toMinuteOfDay() <= nowMin && b.end.toMinuteOfDay() > nowMin
             val keep = task != null && task.status != TaskStatus.DROPPED &&
@@ -184,6 +194,7 @@ class PlanRepository @Inject constructor(
                 date, events, cs,
                 existing = kept.filter { it.date == date },
                 notBefore = if (i == 0) LocalTime.of(earliestToday / 60, earliestToday % 60) else null,
+                commitments = commitmentEvents(commitments),
             )
         }
 
@@ -213,26 +224,71 @@ class PlanRepository @Inject constructor(
         return replan()
     }
 
-    /** A drag or resize. Validated against fixed events, prayers, the work window and other blocks. */
+    /** A drag or resize. Validated against fixed events, prayers, sleep, the work window and other blocks. */
     suspend fun move(blockId: Long, date: LocalDate, startMin: Int, endMin: Int, actor: Actor = Actor.USER): MoveResult {
         val row = blocks.get(blockId) ?: return MoveResult.Rejected(listOf("That block no longer exists"))
         if (startMin !in 0 until 24 * 60 || endMin !in 1 until 24 * 60 || endMin <= startMin) {
             return MoveResult.Rejected(listOf("That time isn't valid"))
         }
+        val title = row.taskId?.let { id -> tasks.snapshot().firstOrNull { it.id == id }?.title } ?: row.label ?: "block"
         val op = Op.Move(blockId, date, startMin.toLocalTime(), endMin.toLocalTime())
-        val changeSet = ChangeSet(listOf(op), actor)
-        val state = stateFor(listOf(LocalDate.parse(row.date), date))
+        return applyChanges(ChangeSet(listOf(op), actor), "Moved $title")
+    }
+
+    /** Checks a change against the rules without applying it. */
+    suspend fun check(changeSet: ChangeSet): Validation =
+        scheduler.validate(changeSet, stateFor(affectedDates(changeSet)))
+
+    /** Validates a change and, if it is allowed, applies it as one logged change that can be undone. */
+    suspend fun applyChanges(changeSet: ChangeSet, summary: String): MoveResult {
+        val state = stateFor(affectedDates(changeSet))
         val verdict = scheduler.validate(changeSet, state)
         if (!verdict.ok) {
             return MoveResult.Rejected(verdict.violations.filter { it.hard }.map { it.message }.distinct())
         }
-
         val applied = apply(state.blocks, changeSet)
-        applied.diffs.forEach { d -> d.after?.let { blocks.upsert(it.toEntity(row.syncedStartMillis, row.syncedEndMillis)) } }
-        val title = row.taskId?.let(state.tasks::get)?.title ?: "block"
-        val id = log(actor, "Moved $title", applied.diffs)
+        for (diff in applied.diffs) {
+            val after = diff.after
+            val before = diff.before
+            when {
+                after != null -> {
+                    val current = blocks.get(after.id)
+                    blocks.upsert(after.toEntity(current?.syncedStartMillis, current?.syncedEndMillis))
+                }
+                before != null -> blocks.delete(listOf(before.id))
+            }
+        }
+        val id = log(changeSet.actor, summary, applied.diffs)
         pushToGoogle()
         return MoveResult.Applied(id, verdict.violations.filterNot { it.hard }.map { it.message }.distinct())
+    }
+
+    /**
+     * Adds a commitment such as an interview: a locked fixed block that is mirrored to the Planner calendar.
+     * Tasks are replanned around it. Undoing removes it.
+     */
+    suspend fun addCommitment(title: String, date: LocalDate, start: LocalTime, end: LocalTime, actor: Actor): MoveResult {
+        if (title.isBlank() || end <= start) {
+            return MoveResult.Rejected(listOf("A commitment needs a title and an end time after its start"))
+        }
+        val block = Block(
+            date = date, start = start, end = end, kind = BlockKind.FIXED, locked = true,
+            origin = if (actor == Actor.AI) BlockOrigin.AI else BlockOrigin.USER, label = title.trim(),
+        )
+        val saved = block.copy(id = blocks.upsert(block.toEntity()))
+        val changeId = log(actor, "Added ${saved.label}", listOf(BlockDiff(null, saved)))
+        replan()
+        return MoveResult.Applied(changeId, emptyList())
+    }
+
+    private suspend fun affectedDates(changeSet: ChangeSet): List<LocalDate> {
+        val dates = changeSet.ops.flatMap { op ->
+            when (op) {
+                is Op.Move -> listOfNotNull(op.date, blocks.get(op.blockId)?.date?.let(LocalDate::parse))
+                is Op.Drop -> listOfNotNull(blocks.get(op.blockId)?.date?.let(LocalDate::parse))
+            }
+        }
+        return dates.ifEmpty { listOf(LocalDate.now(clock)) }
     }
 
     /** Takes the block off the plan. The task stays open and is placed again by the next replan. */
@@ -265,7 +321,7 @@ class PlanRepository @Inject constructor(
             }
         }
         changeLog.markUndone(changeId)
-        pushToGoogle()
+        if (decodeDiffs(entry.diffJson).any { d -> listOfNotNull(d.before, d.after).any(Commitments::isCommitment) }) replan() else pushToGoogle()
         return true
     }
 
@@ -284,18 +340,29 @@ class PlanRepository @Inject constructor(
         val from = dates.min()
         val to = dates.max()
         val all = blocks.between(from.toString(), to.toString()).map { it.toBlock() }
+        val commitments = commitmentEvents(all)
         val contexts = generateSequence(from) { it.plusDays(1) }.takeWhile { it <= to }
-            .associateWith { context(it, events, cs, emptyList(), null) }
+            .associateWith { context(it, events, cs, emptyList(), null, commitments) }
         return PlanState(all, contexts, tasks.snapshot().associateBy { it.id })
     }
 
-    private fun context(date: LocalDate, events: List<CalendarEvent>, cs: CalSettings, existing: List<Block>, notBefore: LocalTime?): DayContext {
+    private fun commitmentEvents(all: List<Block>): List<FixedEvent> =
+        all.filter(Commitments::isCommitment).map { Commitments.toFixedEvent(it, clock.zone) }
+
+    private fun context(
+        date: LocalDate,
+        events: List<CalendarEvent>,
+        cs: CalSettings,
+        existing: List<Block>,
+        notBefore: LocalTime?,
+        commitments: List<FixedEvent> = emptyList(),
+    ): DayContext {
         val prayerCalendar = cs.calendars.firstOrNull { PrayerTimes.isPrayerCalendar(it.name) }?.id
         val byDate = prayerCalendar?.let { PrayerTimes.fromEvents(events, it, clock.zone) }.orEmpty()
         return DayContext(
             date = date,
             zone = clock.zone,
-            fixed = FixedEvents.from(events, cs.selected, cs.plannerId),
+            fixed = FixedEvents.from(events, cs.selected, cs.plannerId) + commitments,
             prayers = PrayerTimes.forDate(date, byDate, cs.fajr[Weeks.mondayOf(date)]),
             existing = existing,
             notBefore = notBefore,
