@@ -2,6 +2,8 @@ package app.planner.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.calendar.AllDayTask
+import app.planner.calendar.AllDayTicks
 import app.planner.data.TaskRepository
 import app.planner.model.Task
 import app.planner.model.DayTaskList
@@ -40,6 +42,7 @@ enum class CalendarMode(val label: String, val days: Int) {
 class PlanViewModel @Inject constructor(
     private val plan: PlanRepository,
     private val tasks: TaskRepository,
+    private val allDayTicks: AllDayTicks,
     private val clock: Clock,
 ) : ViewModel() {
     val mode = MutableStateFlow(CalendarMode.DAY)
@@ -63,6 +66,11 @@ class PlanViewModel @Inject constructor(
         val today = LocalDate.now(clock)
         DayTaskList.on(today, today, clock.zone, list, blocks, summary.overflow.map { it.id }.toSet()).all
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Today's all-day calendar items, as tasks to tick off. */
+    val todayAllDay: StateFlow<List<AllDayTask>> = plan.dayViews(LocalDate.now(clock), LocalDate.now(clock))
+        .map { views -> views.flatMap { it.allDayTasks } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Today's block per task, for the suggested times on the Today list. */
     val todayBlocks: StateFlow<Map<Long, Block>> = plan.dayViews(LocalDate.now(clock), LocalDate.now(clock))
@@ -124,6 +132,8 @@ class PlanViewModel @Inject constructor(
     fun toggleDone(task: Task) = viewModelScope.launch {
         tasks.setStatus(task.id, if (task.status == TaskStatus.DONE) TaskStatus.OPEN else TaskStatus.DONE)
     }
+
+    fun toggleAllDay(task: AllDayTask) = viewModelScope.launch { allDayTicks.toggle(task) }
 
     fun undo(changeId: Long) = viewModelScope.launch {
         if (plan.undo(changeId)) _messages.emit(PlanMessage("Undone"))

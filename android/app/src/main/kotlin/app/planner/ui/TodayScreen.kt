@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.planner.calendar.AllDayTask
 import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.readiness.ReadinessState
@@ -52,7 +53,7 @@ fun TodayScreen(
     val tasks by planVm.todayTasks.collectAsStateWithLifecycle()
     val sync by calVm.sync.collectAsStateWithLifecycle()
     val lastSynced by calVm.lastSyncedAt.collectAsStateWithLifecycle()
-    val calendarToday by calVm.today.collectAsStateWithLifecycle()
+    val allDay by planVm.todayAllDay.collectAsStateWithLifecycle()
     val blocks by planVm.todayBlocks.collectAsStateWithLifecycle()
     val summary by planVm.summary.collectAsStateWithLifecycle()
     val allTasks by planVm.tasksById.collectAsStateWithLifecycle()
@@ -139,23 +140,14 @@ fun TodayScreen(
                 }
             }
         } }
-        if (calendarToday.allDay.isNotEmpty()) item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("All day", style = MaterialTheme.typography.titleMedium)
-                calendarToday.allDay.forEach { event ->
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
-                        Text(event.title, Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Today’s tasks", style = MaterialTheme.typography.titleMedium)
                 TextButton(onClick = onOpenPlan) { Text("See plan") }
             }
         }
-        if (tasks.isEmpty()) item {
+        items(allDay, key = { it.key }) { task -> AllDayTaskRow(task, onToggle = { planVm.toggleAllDay(task) }) }
+        if (tasks.isEmpty() && allDay.isEmpty()) item {
             EmptyTasksCard(today = true, templateItems = template.items.size, message = generated, onAdd = onAdd, onGenerate = { tasksVm.generateWeek(0) }, onSetUpTemplate = onOpenTemplate)
         }
         items(tasks, key = { it.id }) { task ->
@@ -163,7 +155,7 @@ fun TodayScreen(
         }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${tasks.count { it.status == TaskStatus.DONE }} of ${tasks.size} tasks done today", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${tasks.count { it.status == TaskStatus.DONE } + allDay.count { it.done }} of ${tasks.size + allDay.size} tasks done today", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { RoutineLaunch.open(LaunchTarget.TOMORROW_PLAN) }) { Text("Close the day") }
             }
         }
@@ -179,6 +171,21 @@ fun TodayScreen(
         }
     }
     if (manualSleep) ManualSleepDialog(onSave = { bed, wake -> readinessVm.addManualSleep(bed, wake); manualSleep = false }, onDismiss = { manualSleep = false })
+}
+
+/** An all-day calendar event as a task: ticked off on the phone, with no time block and nothing to edit. */
+@Composable
+fun AllDayTaskRow(task: AllDayTask, onToggle: () -> Unit) {
+    Column {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = task.done, onCheckedChange = { onToggle() })
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(task.title, style = MaterialTheme.typography.bodyLarge, textDecoration = if (task.done) TextDecoration.LineThrough else null, color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                Text("All day · from your calendar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
 }
 
 /** Editing and progress are both visible actions; long press remains a shortcut. */

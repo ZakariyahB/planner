@@ -1,7 +1,7 @@
 [
   {
     "name": "get_day",
-    "description": "Read one day of the plan: the planned task blocks (with ids you can move), fixed commitments from the calendar, all-day calendar items with no start time (deadlines, exams, trips, days off; they hold no time slot but matter for how full the day is), prayer times, and the times he was asleep. Call this before suggesting any change to a day.",
+    "description": "Read one day of the plan: the planned task blocks (with ids you can move), fixed commitments from the calendar, all-day calendar items with no start time (deadlines, exams, trips, days off; each is also a task he ticks off, with done true once ticked; they hold no time slot but matter for how full the day is), prayer times, and the times he was asleep. Call this before suggesting any change to a day.",
     "input_schema": {
       "type": "object",
       "properties": {

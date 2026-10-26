@@ -1,5 +1,6 @@
 package app.planner.ai
 
+import app.planner.calendar.AllDayTasks
 import app.planner.calendar.EventTiming
 import app.planner.data.TaskRepository
 import app.planner.model.Task
@@ -86,6 +87,7 @@ class AiReadTools @Inject constructor(
                         add(
                             buildJsonObject {
                                 put("title", e.title)
+                                put("done", view.allDayTasks.any { it.key == AllDayTasks.key(e, date) && it.done })
                                 (e.timing as? EventTiming.AllDay)?.let { t ->
                                     put("first_day", t.start.toString())
                                     put("last_day", t.endExclusive.minusDays(1).toString())

@@ -8,7 +8,7 @@ Everything you enter stays on your phone. The only thing that leaves it is what 
 
 **Morning.** When you unlock your phone after waking, you get the morning brief and your readiness score for the day. If your first sleep ended near Fajr, you may first get a "back to bed" notice saying how much sleep you have had and when to set the alarm.
 
-**Today tab.** The date, a compact setup prompt while needed, your readiness summary, the next-task card, any **All day** calendar items, then the day's task list. The list follows actual scheduled dates, including work whose deadline is later. Tasks without a placement appear as **Any time**. Tick a task when it is done, tap it to edit, or tap **Log** to record progress. Long press remains a shortcut. Tap readiness for sleep details, refresh or manual entry. Use **See plan** for the calendar; Today stays a task list.
+**Today tab.** The date, a compact setup prompt while needed, your readiness summary, the next-task card, then the day's task list. All-day calendar events come first in the list as tasks to tick off: they get no time block, ticking one doesn't change your calendar, and a multi-day event is ticked off for each day separately. The list follows actual scheduled dates, including work whose deadline is later. Tasks without a placement appear as **Any time**. Tick a task when it is done, tap it to edit, or tap **Log** to record progress. Long press remains a shortcut. Tap readiness for sleep details, refresh or manual entry. Use **See plan** for the calendar; Today stays a task list.
 
 **During the day.** If something overruns, open **AI chat** above the bottom navigation ("Halaqa ran over by an hour") or drag the blocks yourself in **Plan**. Use **Adjust** in Plan to fit flexible work again. Closing chat returns to the same screen and scroll position.
 
@@ -43,7 +43,7 @@ Three things to know:
 
 Choose **Day**, **3 days** or **Week** at the top; **Adjust** beside them replans. The arrows move by that much; tap the month to choose a date or return to **Today**. In day view, the week strip selects a day directly. A blue line marks now.
 
-You see fixed commitments on neutral surfaces, prayer times as dashed lines, grey shading where you were asleep, and flexible task blocks in pale blue. Completed task blocks are neutral. Overlapping commitments share columns instead of covering each other. **All day** lists every all-day calendar event above the hourly grid; **Any time** lists relevant tasks without a scheduled block. All-day events spanning dates appear on each covered date. These items never receive a fabricated midnight time. Tap an event or task for details. Three-day and week views scroll sideways together with their headers when more space is needed.
+You see fixed commitments on neutral surfaces, prayer times as dashed lines, grey shading where you were asleep, and flexible task blocks in pale blue. Completed task blocks are neutral. Overlapping commitments share columns instead of covering each other. **All day** lists every all-day calendar event above the hourly grid, with a box to tick it off; **Any time** lists relevant tasks without a scheduled block. All-day events spanning dates appear on each covered date. These items never receive a fabricated midnight time. Tap an event or task for details. Three-day and week views scroll sideways together with their headers when more space is needed.
 
 - **Move a block:** drag it. It snaps to 15 minutes.
 - **Change its length:** drag the small handle at its bottom edge.

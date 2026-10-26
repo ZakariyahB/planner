@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -68,6 +69,8 @@ import app.planner.empty.EmptyStates
 import app.planner.model.Task
 import app.planner.model.DayTaskList
 import app.planner.model.Weeks
+import app.planner.calendar.AllDayTask
+import app.planner.calendar.AllDayTasks
 import app.planner.calendar.CalendarEvent
 import app.planner.calendar.CalendarLayout
 import app.planner.calendar.CalendarSpan
@@ -160,7 +163,7 @@ fun CalendarScreen(vm: PlanViewModel, calendarConnected: Boolean, onEditTask: (T
             Column(Modifier.horizontalScroll(rememberScrollState())) {
                 Column(Modifier.width(contentWidth).fillMaxSize()) {
                     if (mode != CalendarMode.DAY) DayHeaders(days)
-                    DayTopRows(days, untimed, dayTopHeight, onEvent = { allDaySelection = it }, onTask = onEditTask, onToggle = vm::toggleDone)
+                    DayTopRows(days, untimed, dayTopHeight, onEvent = { allDaySelection = it }, onToggleEvent = vm::toggleAllDay, onTask = onEditTask, onToggle = vm::toggleDone)
                     Timeline(days, tasks, onMove = vm::move, onSelect = { selected = it }, onFixed = { fixedSelection = it }, modifier = Modifier.weight(1f))
                 }
             }
@@ -226,7 +229,7 @@ private fun DayHeaders(days: List<DayView>) {
 /** All events are shown, including multi-day events on each covered date; no fabricated midnight blocks. */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun DayTopRows(days: List<DayView>, untimed: Map<LocalDate, List<Task>>, maxHeight: Dp, onEvent: (CalendarEvent) -> Unit, onTask: (Task) -> Unit, onToggle: (Task) -> Unit) {
+private fun DayTopRows(days: List<DayView>, untimed: Map<LocalDate, List<Task>>, maxHeight: Dp, onEvent: (CalendarEvent) -> Unit, onToggleEvent: (AllDayTask) -> Unit, onTask: (Task) -> Unit, onToggle: (Task) -> Unit) {
     if (days.none { it.allDay.isNotEmpty() } && untimed.values.all { it.isEmpty() }) return
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (days.any { it.allDay.isNotEmpty() }) Row(Modifier.fillMaxWidth()) {
@@ -234,8 +237,19 @@ private fun DayTopRows(days: List<DayView>, untimed: Map<LocalDate, List<Task>>,
             days.forEach { day ->
                 FlowRow(Modifier.weight(1f).padding(horizontal = 3.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     day.allDay.forEach { event ->
-                        Surface(onClick = { onEvent(event) }, color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small, modifier = if (days.size == 1) Modifier else Modifier.fillMaxWidth()) {
-                            Text(event.title, Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        val task = day.allDayTasks.firstOrNull { it.key == AllDayTasks.key(event, day.date) }
+                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small, modifier = if (days.size == 1) Modifier else Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                task?.let { Checkbox(checked = it.done, onCheckedChange = { _ -> onToggleEvent(it) }) }
+                                Text(
+                                    event.title,
+                                    Modifier.clickable { onEvent(event) }.padding(vertical = 8.dp, horizontal = 4.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textDecoration = if (task?.done == true) TextDecoration.LineThrough else null,
+                                )
+                            }
                         }
                     }
                 }

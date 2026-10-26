@@ -1,5 +1,8 @@
 package app.planner.plan
 
+import app.planner.calendar.AllDayTask
+import app.planner.calendar.AllDayTasks
+import app.planner.calendar.AllDayTicks
 import app.planner.calendar.CalendarEvent
 import app.planner.calendar.CalendarInfo
 import app.planner.calendar.CalendarRepository
@@ -64,6 +67,8 @@ data class DayView(
     val date: LocalDate,
     val fixed: List<FixedEvent>,
     val allDay: List<CalendarEvent>,
+    /** The same all-day events as tasks for this day, to tick off. */
+    val allDayTasks: List<AllDayTask>,
     val prayers: Map<Prayer, LocalTime>,
     val blocks: List<Block>,
     val colours: Map<String, String?>,
@@ -100,6 +105,7 @@ class PlanRepository @Inject constructor(
     private val sleepDao: SleepDao,
     private val dayRules: DayRulesRepository,
     private val plannerSync: PlannerCalendarSync,
+    private val allDayTicks: AllDayTicks,
     private val clock: Clock,
 ) {
     private suspend fun scheduler(): Scheduler = Scheduler(dayRules.current())
@@ -135,7 +141,7 @@ class PlanRepository @Inject constructor(
         }
 
     fun dayViews(from: LocalDate, to: LocalDate): Flow<List<DayView>> =
-        combine(blocks.observeBetween(from.toString(), to.toString()), calendar.cachedEvents, calSettings) { rows, events, cs ->
+        combine(blocks.observeBetween(from.toString(), to.toString()), calendar.cachedEvents, calSettings, allDayTicks.done) { rows, events, cs, done ->
             val all = rows.map { it.toBlock() }
             val commitments = commitmentEvents(all)
             generateSequence(from) { it.plusDays(1) }.takeWhile { it <= to }.map { date ->
@@ -144,6 +150,7 @@ class PlanRepository @Inject constructor(
                     date = date,
                     fixed = ctx.fixed.filter { it.start.atZone(clock.zone).toLocalDate() <= date && it.end.atZone(clock.zone).toLocalDate() >= date },
                     allDay = FixedEvents.allDayOn(events, cs.selected, cs.plannerId, date),
+                    allDayTasks = AllDayTasks.on(events, cs.selected, cs.plannerId, date, done),
                     prayers = ctx.prayers,
                     blocks = all.filter { it.date == date && it.kind == BlockKind.TASK },
                     colours = cs.calendars.associate { it.id to it.colorHex },
