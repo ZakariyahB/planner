@@ -1,26 +1,19 @@
 package app.planner.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
@@ -31,12 +24,16 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.model.Task
 import app.planner.model.TaskStatus
+import app.planner.readiness.ReadinessState
+import app.planner.routines.LaunchTarget
+import app.planner.routines.RoutineLaunch
 import app.planner.scheduler.Block
 import app.planner.setup.SetupChecklist
-import app.planner.social.SocialTimeCard
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodayScreen(
     tasksVm: TasksViewModel,
@@ -49,10 +46,10 @@ fun TodayScreen(
     onAdd: () -> Unit,
     onLogProgress: (Task) -> Unit,
     onOpenTemplate: () -> Unit,
+    onOpenPlan: () -> Unit,
 ) {
     val zone = ZoneId.systemDefault()
-    val tasks by tasksVm.today.collectAsStateWithLifecycle()
-    val today by calVm.today.collectAsStateWithLifecycle()
+    val tasks by planVm.todayTasks.collectAsStateWithLifecycle()
     val sync by calVm.sync.collectAsStateWithLifecycle()
     val lastSynced by calVm.lastSyncedAt.collectAsStateWithLifecycle()
     val blocks by planVm.todayBlocks.collectAsStateWithLifecycle()
@@ -63,146 +60,130 @@ fun TodayScreen(
     val readiness by readinessVm.view.collectAsStateWithLifecycle()
     val health by readinessVm.health.collectAsStateWithLifecycle()
     val note by readinessVm.syncNote.collectAsStateWithLifecycle()
-    val fajr by readinessVm.fajrThisWeek.collectAsStateWithLifecycle()
-    var manualSleep by remember { mutableStateOf(false) }
-
-    // The first-run checklist, re-checked each time the app comes back from a settings screen.
+    var manualSleep by rememberSaveable { mutableStateOf(false) }
+    var showReadiness by rememberSaveable { mutableStateOf(false) }
+    var showSetup by rememberSaveable { mutableStateOf(false) }
     val setupVm: SetupViewModel = hiltViewModel()
     val setupItems by setupVm.items.collectAsStateWithLifecycle()
     val setupNote by setupVm.note.collectAsStateWithLifecycle()
     val setupShowing = setupItems?.let { !SetupChecklist.isComplete(it) } == true
-    val setupHandlesIt = setupItems == null || setupShowing // its rows cover the Fajr and Connect prompts below
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { setupVm.refresh() }
-    DisposableEffect(Unit) { onDispose { tasksVm.clearGenerated() } } // "Added 6 tasks" is only news while it is on screen
+    DisposableEffect(Unit) { onDispose { tasksVm.clearGenerated() } }
+    val now = LocalTime.now(zone)
+    val next = tasks.firstOrNull { it.status != TaskStatus.DONE && blocks[it.id]?.end?.let { end -> end > now } == true }
+        ?: tasks.firstOrNull { it.status != TaskStatus.DONE }
+    val score = when (val state = readiness?.state) {
+        is ReadinessState.Final -> state.readiness
+        is ReadinessState.Provisional -> state.readiness
+        else -> null
+    }
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            Text(LocalDate.now(zone).format(dayHeaderFormat), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
-        }
-
-        setupItems?.takeIf { setupShowing }?.let { items ->
-            item {
-                SetupCard(items, setupNote, setupVm, onConnect, onAllowHealth, onSetFajr = readinessVm::saveFajr)
+        item { ScreenHeading(LocalDate.now(zone).format(dayHeaderFormat), "One thing\nat a time.") }
+        if (setupShowing) item {
+            PlannerPanel {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Get set up", style = MaterialTheme.typography.titleSmall)
+                        Text("Connect your day, sleep and reminders.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { showSetup = !showSetup }) { Text(if (showSetup) "Hide" else "Continue") }
+                }
+                if (showSetup) setupItems?.let { SetupCard(it, setupNote, setupVm, onConnect, onAllowHealth, onSetFajr = readinessVm::saveFajr) }
             }
         }
-
         item {
-            ReadinessCard(
-                view = readiness,
-                health = health,
-                note = note,
-                onAllowHealth = onAllowHealth,
-                onRefresh = readinessVm::syncSleep,
-                onManualSleep = { manualSleep = true },
-            )
-        }
-        if (fajr == null && !setupHandlesIt) item { FajrCard(onSet = readinessVm::saveFajr) }
-
-        item { SocialTimeCard() }
-
-        if ((lastSynced == null && !setupHandlesIt) || sync is SyncUi.NeedsConsent || sync is SyncUi.Failed) {
-            item { ConnectCard(sync, connected = lastSynced != null, onConnect = onConnect) }
-        }
-
-        if (today.allDay.isNotEmpty()) {
-            item { Text(today.allDay.joinToString(" · ") { it.title }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-
-        if (today.fixed.isNotEmpty()) {
-            item { SectionTitle("Fixed today") }
-            items(today.fixed, key = { it.calendarId + it.id }) { e ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("${timeFormat.format(e.start.atZone(zone))}–${timeFormat.format(e.end.atZone(zone))}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(e.title)
+            Surface(onClick = { showReadiness = true }, color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(42.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Star, null, tint = MaterialTheme.colorScheme.primary) }
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(when {
+                            score == null -> "Waiting for sleep data"
+                            readiness?.state is ReadinessState.Provisional -> "Readiness so far"
+                            score.score >= 70 -> "Ready for a steady day"
+                            else -> "Make today a little lighter"
+                        }, style = MaterialTheme.typography.titleSmall)
+                        Text(score?.inputs?.asleepMin?.let { "${it / 60}h ${it % 60}m sleep · View your readiness" } ?: "Add last night’s sleep to get started", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (score != null) Text("${score.score}/100", style = MaterialTheme.typography.titleLarge)
+                    else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Readiness details")
                 }
             }
-            item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
         }
-
-        item { RoutineCards() }
-
-        item { PlanNotes(summary, allTasks, onApproveCut = planVm::approveLoadCut) }
-
-        item { SectionTitle("Tasks") }
-        if (tasks.isEmpty()) {
-            item {
-                EmptyTasksCard(
-                    today = true,
-                    templateItems = template.items.size,
-                    message = generated,
-                    onAdd = onAdd,
-                    onGenerate = { tasksVm.generateWeek(0) },
-                    onSetUpTemplate = onOpenTemplate,
-                )
+        if (sync is SyncUi.NeedsConsent || sync is SyncUi.Failed || (lastSynced == null && !setupShowing)) item {
+            PlannerPanel {
+                Text(if (lastSynced != null) "Your plan is safe on this phone." else "Bring your commitments together.", style = MaterialTheme.typography.titleSmall)
+                Text((sync as? SyncUi.Failed)?.message ?: "Connect Google Calendar so Planner can work around your day.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onConnect, enabled = sync !is SyncUi.Syncing) { Text(if (lastSynced == null) "Connect calendar" else "Reconnect") }
             }
+        }
+        next?.let { task -> item {
+            PlannerPanel(tinted = true, modifier = Modifier.heightIn(min = 120.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("YOUR NEXT THING", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${blocks[task.id]?.start?.format(timeFormat) ?: "Any time"} · ${task.estMin}m", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f).clickable { onEdit(task) }) {
+                        Text(task.title, style = MaterialTheme.typography.titleMedium)
+                        task.module?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    Button(onClick = { onLogProgress(task) }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) { Text("Log progress", style = MaterialTheme.typography.labelMedium) }
+                }
+            }
+        } }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Today’s tasks", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = onOpenPlan) { Text("See plan") }
+            }
+        }
+        if (tasks.isEmpty()) item {
+            EmptyTasksCard(today = true, templateItems = template.items.size, message = generated, onAdd = onAdd, onGenerate = { tasksVm.generateWeek(0) }, onSetUpTemplate = onOpenTemplate)
         }
         items(tasks, key = { it.id }) { task ->
             TaskRow(task, zone, blocks[task.id], onToggle = { tasksVm.toggleDone(task) }, onClick = { onEdit(task) }, onLongClick = { onLogProgress(task) })
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                if (tasks.isNotEmpty()) Button(onClick = onAdd) { Text("Add task") }
-                OutlinedButton(onClick = planVm::replan) { Text("Replan") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${tasks.count { it.status == TaskStatus.DONE }} of ${tasks.size} tasks done today", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { RoutineLaunch.open(LaunchTarget.TOMORROW_PLAN) }) { Text("Close the day") }
             }
         }
+        item { PlanNotes(summary, allTasks, onApproveCut = planVm::approveLoadCut) }
+        item { RoutineCards() }
+        if (tasks.isNotEmpty()) item { OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Add a task") } }
     }
 
-    if (manualSleep) {
-        ManualSleepDialog(
-            onSave = { bed, wake -> readinessVm.addManualSleep(bed, wake); manualSleep = false },
-            onDismiss = { manualSleep = false },
-        )
+    if (showReadiness) ModalBottomSheet(onDismissRequest = { showReadiness = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 24.dp)) {
+            Text("Your energy, explained", style = MaterialTheme.typography.headlineSmall)
+            ReadinessCard(readiness, health, note, onAllowHealth, readinessVm::syncSleep, onManualSleep = { showReadiness = false; manualSleep = true })
+        }
     }
+    if (manualSleep) ManualSleepDialog(onSave = { bed, wake -> readinessVm.addManualSleep(bed, wake); manualSleep = false }, onDismiss = { manualSleep = false })
 }
 
-/** Tap edits the task; a long press (not for finished tasks) is for logging progress on it. */
+/** Editing and progress are both visible actions; long press remains a shortcut. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskRow(task: Task, zone: ZoneId, block: Block?, onToggle: () -> Unit, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val done = task.status == TaskStatus.DONE
-    Row(
-        Modifier.fillMaxWidth().combinedClickable(
-            onClick = onClick,
-            onLongClickLabel = "Log progress",
-            onLongClick = if (done) null else onLongClick,
-        ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(checked = done, onCheckedChange = { onToggle() })
-        Column(Modifier.weight(1f)) {
-            Text(
-                task.title,
-                style = MaterialTheme.typography.bodyLarge,
-                textDecoration = if (done) TextDecoration.LineThrough else null,
-                color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
-            Text(taskMeta(task, zone), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column {
+        Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClickLabel = "Log progress", onLongClick = if (done) null else onLongClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = done, onCheckedChange = { onToggle() })
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(task.title, style = MaterialTheme.typography.bodyLarge, textDecoration = if (done) TextDecoration.LineThrough else null, color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                Text(listOfNotNull(block?.let { "${it.start.format(timeFormat)}–${it.end.format(timeFormat)}" } ?: "Any time", taskMeta(task, zone)).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (!done && onLongClick != null) TextButton(onClick = onLongClick, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("Log", style = MaterialTheme.typography.labelMedium) }
         }
-        if (block != null) {
-            Text(
-                "${timeFormat.format(block.start)}–${timeFormat.format(block.end)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ConnectCard(sync: SyncUi, connected: Boolean, onConnect: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(if (connected) "Google Calendar needs reconnecting" else "Connect Google Calendar", style = MaterialTheme.typography.titleMedium)
-        Text(
-            when (sync) {
-                is SyncUi.Failed -> sync.message
-                else -> "Read-only access to your calendars gives the planner your classes and commitments to work around."
-            },
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Button(onClick = onConnect, enabled = sync !is SyncUi.Syncing) { Text(if (sync is SyncUi.Syncing) "Connecting…" else if (connected) "Reconnect" else "Connect") }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

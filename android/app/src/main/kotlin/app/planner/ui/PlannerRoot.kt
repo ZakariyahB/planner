@@ -196,6 +196,7 @@ fun PlannerRoot() {
                         onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) },
                         onLogProgress = { progressFor = it },
                         onOpenTemplate = openTemplate,
+                        onOpenPlan = { tab = Tab.CALENDAR },
                     )
                     Tab.CALENDAR -> CalendarScreen(planVm, calendarConnected = lastSynced != null, onEditTask = { editor = EditorTarget(it) }, onLogProgress = { progressFor = it })
                     Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) }, onLogProgress = { progressFor = it }, onOpenTemplate = openTemplate)

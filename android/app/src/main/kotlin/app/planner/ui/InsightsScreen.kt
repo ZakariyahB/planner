@@ -38,6 +38,7 @@ import app.planner.insights.SocialInsights
 import app.planner.insights.SocialRow
 import app.planner.insights.WeeklyReview
 import app.planner.social.SocialNudges
+import app.planner.social.SocialTimeCard
 import app.planner.ui.theme.LocalStatusColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -71,6 +72,7 @@ fun InsightsScreen(vm: InsightsViewModel) {
                 if (ui.social.isNotEmpty()) item { SocialSection(ui.social) }
             }
         }
+        item { SocialTimeCard() }
         item { Box(Modifier.height(8.dp)) }
     }
 }
