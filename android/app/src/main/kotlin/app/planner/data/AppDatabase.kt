@@ -23,8 +23,8 @@ import javax.inject.Singleton
         SleepEntity::class,
         ReadinessEntity::class,
     ],
-    version = 3,
-    autoMigrations = [AutoMigration(from = 2, to = 3)],
+    version = 4,
+    autoMigrations = [AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun settings(): SettingsDao

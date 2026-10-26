@@ -1,0 +1,438 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "b336565eae0f1849e3fbe60be8cc15a1",
+    "entities": [
+      {
+        "tableName": "settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "tasks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `module` TEXT, `estMin` INTEGER NOT NULL, `availableFromMillis` INTEGER, `anchorPrayer` TEXT, `anchorOffsetMin` INTEGER, `dueAtMillis` INTEGER, `startAtMin` INTEGER, `priority` TEXT NOT NULL, `source` TEXT NOT NULL, `status` TEXT NOT NULL, `templateKey` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "module",
+            "columnName": "module",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "estMin",
+            "columnName": "estMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "availableFromMillis",
+            "columnName": "availableFromMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "anchorPrayer",
+            "columnName": "anchorPrayer",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "anchorOffsetMin",
+            "columnName": "anchorOffsetMin",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "dueAtMillis",
+            "columnName": "dueAtMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "startAtMin",
+            "columnName": "startAtMin",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "priority",
+            "columnName": "priority",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "templateKey",
+            "columnName": "templateKey",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tasks_templateKey",
+            "unique": true,
+            "columnNames": [
+              "templateKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tasks_templateKey` ON `${TABLE_NAME}` (`templateKey`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "fixed_event_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `calendarId` TEXT NOT NULL, `eventId` TEXT NOT NULL, `title` TEXT NOT NULL, `allDay` INTEGER NOT NULL, `start` TEXT NOT NULL, `end` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calendarId",
+            "columnName": "calendarId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allDay",
+            "columnName": "allDay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "start",
+            "columnName": "start",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "end",
+            "columnName": "end",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "blocks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `taskId` INTEGER, `date` TEXT NOT NULL, `startMin` INTEGER NOT NULL, `endMin` INTEGER NOT NULL, `kind` TEXT NOT NULL, `locked` INTEGER NOT NULL, `gcalEventId` TEXT, `origin` TEXT NOT NULL, `syncedStartMillis` INTEGER, `syncedEndMillis` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "taskId",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMin",
+            "columnName": "startMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMin",
+            "columnName": "endMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locked",
+            "columnName": "locked",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gcalEventId",
+            "columnName": "gcalEventId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncedStartMillis",
+            "columnName": "syncedStartMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "syncedEndMillis",
+            "columnName": "syncedEndMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_blocks_date",
+            "unique": false,
+            "columnNames": [
+              "date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_blocks_date` ON `${TABLE_NAME}` (`date`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "change_log",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ts` INTEGER NOT NULL, `actor` TEXT NOT NULL, `summary` TEXT NOT NULL, `diffJson` TEXT NOT NULL, `undone` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ts",
+            "columnName": "ts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actor",
+            "columnName": "actor",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "diffJson",
+            "columnName": "diffJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "undone",
+            "columnName": "undone",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "sleep_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startMillis` INTEGER NOT NULL, `endMillis` INTEGER NOT NULL, `asleepMin` INTEGER NOT NULL, `deepMin` INTEGER NOT NULL, `remMin` INTEGER NOT NULL, `source` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMillis",
+            "columnName": "startMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMillis",
+            "columnName": "endMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "asleepMin",
+            "columnName": "asleepMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deepMin",
+            "columnName": "deepMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remMin",
+            "columnName": "remMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "readiness",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`date` TEXT NOT NULL, `score` INTEGER NOT NULL, `band` TEXT NOT NULL, `inputsJson` TEXT NOT NULL, `computedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`date`))",
+        "fields": [
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "score",
+            "columnName": "score",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "band",
+            "columnName": "band",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputsJson",
+            "columnName": "inputsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "computedAtMillis",
+            "columnName": "computedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "date"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b336565eae0f1849e3fbe60be8cc15a1')"
+    ]
+  }
+}

@@ -15,6 +15,7 @@ import app.planner.model.Task
 import app.planner.model.TaskSource
 import app.planner.model.TaskStatus
 import java.time.Instant
+import java.time.LocalTime
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "tasks", indices = [Index(value = ["templateKey"], unique = true)])
@@ -27,6 +28,8 @@ data class TaskEntity(
     val anchorPrayer: String?,
     val anchorOffsetMin: Int?,
     val dueAtMillis: Long?,
+    /** Chosen start time as minutes after midnight; null lets the planner choose. */
+    val startAtMin: Int?,
     val priority: String,
     val source: String,
     val status: String,
@@ -42,6 +45,7 @@ fun Task.toEntity() = TaskEntity(
     anchorPrayer = anchor?.prayer?.name,
     anchorOffsetMin = anchor?.offsetMin,
     dueAtMillis = dueAt?.toEpochMilli(),
+    startAtMin = startAt?.let { it.hour * 60 + it.minute },
     priority = priority.name,
     source = source.name,
     status = status.name,
@@ -56,6 +60,7 @@ fun TaskEntity.toTask() = Task(
     availableFrom = availableFromMillis?.let(Instant::ofEpochMilli),
     anchor = anchorPrayer?.let { Anchor(Prayer.valueOf(it), anchorOffsetMin ?: 0) },
     dueAt = dueAtMillis?.let(Instant::ofEpochMilli),
+    startAt = startAtMin?.let { LocalTime.of(it / 60, it % 60) },
     priority = Priority.valueOf(priority),
     source = TaskSource.valueOf(source),
     status = TaskStatus.valueOf(status),
@@ -72,6 +77,9 @@ interface TaskDao {
 
     @Upsert
     suspend fun upsert(task: TaskEntity)
+
+    @Upsert
+    suspend fun upsertAll(tasks: List<TaskEntity>)
 
     /** Rows whose templateKey already exists are skipped. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
