@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -110,15 +111,17 @@ fun CalendarScreen(vm: PlanViewModel, calendarConnected: Boolean, onEditTask: (T
     val untimed = days.associate { day -> day.date to DayTaskList.on(day.date, LocalDate.now(zone), zone, tasks.values, placements, summary.overflow.map { it.id }.toSet()).untimed }
 
     Column(Modifier.fillMaxSize()) {
-        Text("Your plan", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
+        // The top bar already names the page, so the view switch sits at the very top to leave the grid more room.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CalendarMode.entries.forEach { m ->
                 FilterChip(selected = m == mode, onClick = { vm.setMode(m) }, label = { Text(m.label) })
             }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = vm::replan) { Text("Adjust") }
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -128,7 +131,6 @@ fun CalendarScreen(vm: PlanViewModel, calendarConnected: Boolean, onEditTask: (T
             IconButton(onClick = { vm.shift(-1) }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous ${mode.label.lowercase()}") }
             TextButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) { Text(start.format(DateTimeFormatter.ofPattern("MMMM yyyy")), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             IconButton(onClick = { vm.shift(1) }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next ${mode.label.lowercase()}") }
-            TextButton(onClick = vm::replan) { Text("Adjust") }
         }
         problem?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
 

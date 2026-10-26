@@ -195,7 +195,14 @@ fun PlannerRoot() {
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(if (showSettings && settingsPage != SettingsPage.HOME) settingsPage.title else "planner", style = MaterialTheme.typography.headlineSmall) },
+                title = {
+                    val title = when {
+                        !showSettings -> tab.label
+                        settingsPage == SettingsPage.HOME -> "Settings"
+                        else -> settingsPage.title
+                    }
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 navigationIcon = {
                     if (showSettings) IconButton(onClick = goBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
