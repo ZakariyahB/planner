@@ -72,6 +72,13 @@ class SettingsRepository @Inject constructor(private val dao: SettingsDao) {
     /** The day on which the user approved a readiness load cut, so replans keep applying it. */
     val loadCutApprovedOn: Flow<LocalDate?> = dao.observe(KEY_LOAD_CUT).map { it?.let(LocalDate::parse) }
 
+    /** Plain key-value access for small settings such as toggles and counters. */
+    fun observe(key: String): Flow<String?> = dao.observe(key)
+
+    suspend fun get(key: String): String? = dao.get(key)
+
+    suspend fun put(key: String, value: String) = dao.put(SettingEntity(key, value))
+
     suspend fun saveTemplate(template: WeeklyTemplate) = dao.put(SettingEntity(KEY_TEMPLATE, template.toJson()))
 
     suspend fun saveCalendars(calendars: List<CalendarInfo>) =
