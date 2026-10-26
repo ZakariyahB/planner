@@ -23,6 +23,8 @@ data class CalendarEvent(
     val calendarId: String,
     val title: String,
     val timing: EventTiming,
+    /** Set on Planner-calendar events we created: the block they mirror. */
+    val plannerBlockId: Long? = null,
 )
 
 /** A timed commitment the scheduler must work around. */

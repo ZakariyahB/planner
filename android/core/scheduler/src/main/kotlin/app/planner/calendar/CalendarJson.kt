@@ -32,7 +32,9 @@ object CalendarJson {
             if (e.str("status") == "cancelled") return@mapNotNull null
             val id = e.str("id") ?: return@mapNotNull null
             val timing = timing(e["start"]?.jsonObject, e["end"]?.jsonObject) ?: return@mapNotNull null
-            CalendarEvent(id, calendarId, e.str("summary") ?: "(no title)", timing)
+            val blockId = ((e["extendedProperties"] as? JsonObject)?.get("private") as? JsonObject)
+                ?.str("planner_block")?.toLongOrNull()
+            CalendarEvent(id, calendarId, e.str("summary") ?: "(no title)", timing, blockId)
         }
         return EventsPage(events, root.str("nextPageToken"))
     }

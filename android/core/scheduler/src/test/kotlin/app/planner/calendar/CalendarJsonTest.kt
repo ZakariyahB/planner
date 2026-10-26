@@ -49,4 +49,18 @@ class CalendarJsonTest {
         assertEquals(emptyList(), page.events)
         assertNull(page.nextPageToken)
     }
+
+    @Test
+    fun `reads the planner block id from private extended properties`() {
+        val body = """
+            {"items":[
+              {"id":"1","summary":"OS worksheet","start":{"dateTime":"2026-10-28T08:45:00Z"},"end":{"dateTime":"2026-10-28T10:15:00Z"},
+               "extendedProperties":{"private":{"planner_block":"42"}}},
+              {"id":"2","summary":"Mine","start":{"dateTime":"2026-10-28T11:00:00Z"},"end":{"dateTime":"2026-10-28T12:00:00Z"}}
+            ]}
+        """.trimIndent()
+        val events = CalendarJson.parseEvents(body, "planner").events
+        assertEquals(42L, events[0].plannerBlockId)
+        assertNull(events[1].plannerBlockId)
+    }
 }
