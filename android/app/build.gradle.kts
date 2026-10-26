@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.id)
+    implementation(libs.androidx.work.runtime)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
