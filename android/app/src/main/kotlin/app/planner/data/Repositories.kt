@@ -4,14 +4,15 @@ import app.planner.calendar.CalendarInfo
 import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.model.WeeklyTemplate
+import app.planner.model.Weeks
 import java.time.Clock
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -24,13 +25,15 @@ class TaskRepository @Inject constructor(
 ) {
     val tasks: Flow<List<Task>> = dao.observeAll().map { rows -> rows.map { it.toTask() } }
 
+    suspend fun snapshot(): List<Task> = dao.all().map { it.toTask() }
+
     suspend fun save(task: Task) = dao.upsert(task.toEntity())
 
     suspend fun setStatus(id: Long, status: TaskStatus) = dao.setStatus(id, status.name)
 
     /** Creates this week's (or [weeksAhead] weeks ahead) template tasks; safe to call repeatedly. Returns how many were new. */
     suspend fun generateFromTemplate(template: WeeklyTemplate, weeksAhead: Long = 0): Int {
-        val monday = LocalDate.now(clock).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).plusWeeks(weeksAhead)
+        val monday = Weeks.mondayOf(LocalDate.now(clock)).plusWeeks(weeksAhead)
         val existing = dao.templateKeys().toSet()
         val fresh = template.expand(monday, clock.zone, existing)
         dao.insertIgnoring(fresh.map { it.toEntity() })
@@ -55,6 +58,18 @@ class SettingsRepository @Inject constructor(private val dao: SettingsDao) {
     val lastSyncedAt: Flow<Instant?> =
         dao.observe(KEY_LAST_SYNC).map { it?.toLongOrNull()?.let(Instant::ofEpochMilli) }
 
+    val plannerCalendarId: Flow<String?> = dao.observe(KEY_PLANNER_CALENDAR)
+
+    /** This week's Fajr, keyed by the Monday of the week (asked once on Sunday). */
+    val fajrWeeks: Flow<Map<LocalDate, LocalTime>> = dao.observe(KEY_FAJR).map { text ->
+        text?.let { json.decodeFromString<Map<String, String>>(it) }.orEmpty()
+            .mapKeys { LocalDate.parse(it.key) }
+            .mapValues { LocalTime.parse(it.value) }
+    }
+
+    /** The day on which the user approved a readiness load cut, so replans keep applying it. */
+    val loadCutApprovedOn: Flow<LocalDate?> = dao.observe(KEY_LOAD_CUT).map { it?.let(LocalDate::parse) }
+
     suspend fun saveTemplate(template: WeeklyTemplate) = dao.put(SettingEntity(KEY_TEMPLATE, template.toJson()))
 
     suspend fun saveCalendars(calendars: List<CalendarInfo>) =
@@ -68,10 +83,29 @@ class SettingsRepository @Inject constructor(private val dao: SettingsDao) {
 
     suspend fun saveLastSynced(at: Instant) = dao.put(SettingEntity(KEY_LAST_SYNC, at.toEpochMilli().toString()))
 
+    suspend fun googleAccount(): String? = dao.get(KEY_ACCOUNT)
+
+    suspend fun saveGoogleAccount(email: String) = dao.put(SettingEntity(KEY_ACCOUNT, email))
+
+    suspend fun plannerCalendar(): String? = dao.get(KEY_PLANNER_CALENDAR)
+
+    suspend fun savePlannerCalendar(id: String) = dao.put(SettingEntity(KEY_PLANNER_CALENDAR, id))
+
+    suspend fun saveFajr(weekMonday: LocalDate, time: LocalTime) {
+        val current = fajrWeeks.first().mapKeys { it.key.toString() }.mapValues { it.value.toString() }
+        dao.put(SettingEntity(KEY_FAJR, json.encodeToString(current + (weekMonday.toString() to time.toString()))))
+    }
+
+    suspend fun approveLoadCut(day: LocalDate) = dao.put(SettingEntity(KEY_LOAD_CUT, day.toString()))
+
     private companion object {
         const val KEY_TEMPLATE = "weekly_template"
         const val KEY_CALENDARS = "calendars"
         const val KEY_SELECTED = "selected_calendars"
         const val KEY_LAST_SYNC = "last_calendar_sync"
+        const val KEY_ACCOUNT = "google_account"
+        const val KEY_PLANNER_CALENDAR = "planner_calendar_id"
+        const val KEY_FAJR = "fajr_weeks"
+        const val KEY_LOAD_CUT = "load_cut_approved_on"
     }
 }

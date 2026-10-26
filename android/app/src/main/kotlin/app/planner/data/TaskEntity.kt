@@ -67,6 +67,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks")
     fun observeAll(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks")
+    suspend fun all(): List<TaskEntity>
+
     @Upsert
     suspend fun upsert(task: TaskEntity)
 
