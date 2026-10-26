@@ -39,10 +39,20 @@ class SocialUsageTracker @Inject constructor(
             val tracked = track(today)
             // The minutes after the last check before midnight are only seen by the first checks of the new day.
             if (LocalTime.now(clock) < FINISH_YESTERDAY_BEFORE) track(today.minusDays(1))
+            backfill(today)
             tracked
         } catch (e: SecurityException) {
             null // access was taken away while reading
         }
+    }
+
+    /** Reads the days before tracking began from the phone's own history. Not without apps, or they'd be saved as zero. */
+    private suspend fun backfill(today: LocalDate) {
+        if (settings.packages().isEmpty()) return
+        val saved = dao.between(today.minusDays(UsageBackfill.LOOKBACK_DAYS.toLong()).toString(), today.minusDays(1).toString())
+            .map { LocalDate.parse(it.date) }
+            .toSet()
+        UsageBackfill.daysToFill(today, saved).forEach { track(it) }
     }
 
     private suspend fun track(date: LocalDate): TrackedDay {
