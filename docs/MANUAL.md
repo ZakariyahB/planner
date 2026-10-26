@@ -8,9 +8,9 @@ Everything you enter stays on your phone. The only thing that leaves it is what 
 
 **Morning.** When you unlock your phone after waking, you get the morning brief and your readiness score for the day. If your first sleep ended near Fajr, you may first get a "back to bed" notice saying how much sleep you have had and when to set the alarm.
 
-**Today tab.** From top to bottom: the date; the **Get set up** card (only until setup is done); the readiness card; your social-media time; your fixed events for the day; then your tasks with suggested times. Tick a task when it is done. Tap a task to edit it. Press and hold a task to log how it went (see below).
+**Today tab.** The date, a compact setup prompt while needed, your readiness summary, the next-task card, then the day's task list. The list follows actual scheduled dates, including work whose deadline is later. Tasks without a placement appear as **Any time**. Tick a task when it is done, tap it to edit, or tap **Log** to record progress. Long press remains a shortcut. Tap readiness for sleep details, refresh or manual entry. Use **See plan** for the calendar; Today stays a task list.
 
-**During the day.** If something overruns, tell the assistant ("Halaqa ran over by an hour") or drag the blocks yourself in the Calendar tab. Press **Replan** on Today or Calendar any time to fit everything again.
+**During the day.** If something overruns, open **AI chat** above the bottom navigation ("Halaqa ran over by an hour") or drag the blocks yourself in **Plan**. Use **Adjust** in Plan to fit flexible work again. Closing chat returns to the same screen and scroll position.
 
 **Evening.** At 21:00 (22:00 on a packed day) you get "Work stops": what got done and what moved. At 21:30 you get your social-time summary. At 23:30 you get **tomorrow's plan** to approve: switch off anything you don't want, then **Approve and sleep**, or **Ask Claude** to change it. At 23:45, thirty minutes before lights-out, you get a warning.
 
@@ -37,13 +37,13 @@ Three things to know:
 
 - **Provisional, then final.** After your first sleep block ends, you see "Readiness so far" and back-to-bed advice. The final score appears once your last sleep has ended and you have unlocked the phone after 07:00 (or at 10:00 at the latest). It is fixed for the day: if things overrun, the plan changes, the score does not.
 - **Waiting for sleep data.** Fitbit can take a while to reach Health Connect. Until it does, Planner says it is waiting and does not score a half-recorded night. If a night never arrives, tap **Enter sleep manually** and give your lights-out and wake times.
-- **Forecast.** At night, Today shows the score you would get tomorrow if lights-out is 00:15, and the one at your usual time.
+- **Forecast.** At night, tap readiness on Today to see the score you would get tomorrow if lights-out is 00:15, and the one at your usual time.
 
-## The Calendar tab
+## The Plan tab
 
-Choose **Day**, **3 days** or **Week**. The arrows move by that much; tapping the date goes back to today. A blue line marks now.
+Choose **Day**, **3 days** or **Week**. The arrows move by that much; tap the month to choose a date or return to **Today**. In day view, the week strip selects a day directly. A blue line marks now.
 
-You see your fixed events in their own calendar colours, prayer times as thin lines, grey shading where you were asleep, and Planner's blocks in blue (green once the task is done). All-day events appear as a strip under the date.
+You see fixed commitments on neutral surfaces, prayer times as dashed lines, grey shading where you were asleep, and flexible task blocks in pale blue. Completed task blocks are neutral. Overlapping commitments share columns instead of covering each other. **All day** lists every all-day calendar event above the hourly grid; **Any time** lists relevant tasks without a scheduled block. All-day events spanning dates appear on each covered date. These items never receive a fabricated midnight time. Tap an event or task for details. Three-day and week views scroll sideways together with their headers when more space is needed.
 
 - **Move a block:** drag it. It snaps to 15 minutes.
 - **Change its length:** drag the small handle at its bottom edge.
@@ -83,7 +83,7 @@ Choose 15, 30, 45 or 60 minutes, or **Other** to type a number. A line under the
 
 ## Talking to the assistant
 
-Open the **Ask** tab. Type, or tap **Mic** and speak: your words appear in the box for you to read and fix before you send. If speech recognition works better offline, install an offline pack in your phone's language settings.
+Tap **AI chat** above the bottom navigation on any screen. Type, or tap **Mic** and speak: your words appear in the box for you to read and fix before you send. Close the sheet to return to where you were. If speech recognition works better offline, install an offline pack in your phone's language settings.
 
 Things you can say:
 
@@ -117,7 +117,7 @@ Planner counts how long your social apps are open and nudges you. It never block
 
 1. Turn on **usage access** for Planner (Get set up on Today walks you to the right screen).
 2. In **Settings, Social media**, choose which apps count (Instagram, TikTok, Snapchat, X, Reddit, Facebook and Threads to begin with; you can add others) and set the daily budget: 2 hours on weekdays and 3 on weekends to begin with.
-3. Today shows a meter. You get a notification at 50%, 80% and 100% of the budget, and a summary at 21:30. Each can be switched off.
+3. Reflect shows today's meter alongside the weekly patterns. You get a notification at 50%, 80% and 100% of the budget, and a summary at 21:30. Each can be switched off.
 
 ## The Sunday review
 
@@ -135,7 +135,7 @@ Fajr is asked once a week because it moves. Saturday uses Friday's prayer times 
 
 ## Insights
 
-The **Insights** tab shows the last seven days: your sleep as a timeline, lights-out against 00:15, planned against done work, social time against budget, and a few plain sentences summing up the week. It fills in over the first few days.
+The **Reflect** tab shows the last seven days: planned against done work, sleep as a timeline, lights-out against 00:15, social time against budget, and a few plain sentences summing up the week. It also shows today's social-time meter and a shortcut to your weekly review. It fills in over the first few days.
 
 ## Settings
 

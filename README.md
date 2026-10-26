@@ -52,6 +52,12 @@ Set `GOOGLE_WEB_CLIENT_ID` in `worker/wrangler.toml` to the **Web** OAuth client
 
 The system prompt and tool definitions live in `docs/prompts` and are bundled into the app as-is.
 
+## Interface
+
+Four destinations: **Today**, **Plan**, **Tasks**, and **Reflect**. Today is the daily task list with a compact next-task card and visible progress actions. Plan holds the day, three-day and week calendars, with all-day events and untimed tasks above the hourly schedule. Blue blocks are flexible tasks; neutral blocks are fixed commitments. **AI chat** opens over the current screen from the bar above navigation. Settings are under the gear icon.
+
+The interface uses neutral surfaces, blue highlights, serif headings, and light/dark/system appearance. The design rationale is in [docs/design/REDESIGN.md](docs/design/REDESIGN.md).
+
 ## Status
 
-See the milestone list in docs/PLAN.md. M0 to M7 are written. M7 added Insights, editable day rules, the change history, the reorganised Settings, backup and restore to a file, long-press to log progress on a task, the Get set up checklist on Today, empty and error states with plain-language messages, and the guides: [docs/SETUP.md](docs/SETUP.md) to install it and [docs/MANUAL.md](docs/MANUAL.md) to use it. The pure-Kotlin core and the Worker are tested; the `:app` module was written without an Android SDK to compile against, so check it in Android Studio.
+See the milestone list in docs/PLAN.md. M0 to M7 are written. The Android interface has been redesigned around the daily task list, calendar and contextual coach. The Android debug build, core tests and Android lint are checked; device-specific permissions and Google/Health Connect setup still follow [docs/SETUP.md](docs/SETUP.md). See [docs/MANUAL.md](docs/MANUAL.md) for day-to-day use.
