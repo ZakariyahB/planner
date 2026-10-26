@@ -1,0 +1,147 @@
+[
+  {
+    "name": "get_day",
+    "description": "Read one day of the plan: the planned task blocks (with ids you can move), fixed commitments from the calendar, prayer times, and the times he was asleep. Call this before suggesting any change to a day.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD. Defaults to today." }
+      }
+    }
+  },
+  {
+    "name": "get_tasks",
+    "description": "List tasks with their ids, estimates, due dates, chosen start times, priority and status. Use it to find a task by name or to see what is outstanding.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["open", "done", "all"], "description": "Defaults to open." },
+        "due_before": { "type": "string", "description": "YYYY-MM-DD. Only tasks due on or before this date." }
+      }
+    }
+  },
+  {
+    "name": "get_sleep",
+    "description": "Summaries of recent nights: when he went to bed, each sleep block, total asleep, and when he woke. Summaries only, never raw sleep stages.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "nights": { "type": "integer", "minimum": 1, "maximum": 14, "description": "How many recent nights. Defaults to 7." }
+      }
+    }
+  },
+  {
+    "name": "get_readiness",
+    "description": "The readiness score for a day (0-100), its band (green, amber, red), and the inputs behind it. If the night is not over yet it is provisional.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD. Defaults to today." }
+      }
+    }
+  },
+  {
+    "name": "get_social_time",
+    "description": "Minutes spent on social-media apps per day against the daily budget, with the per-app split.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "days": { "type": "integer", "minimum": 1, "maximum": 14, "description": "How many recent days. Defaults to 7." }
+      }
+    }
+  },
+  {
+    "name": "propose_changes",
+    "description": "Propose changes to the plan. The app checks them against fixed events, prayer times, sleep, the work window and other blocks, and tells you whether the change is valid and whether it is small or big. Returns a proposal_id. You never set times any other way.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string", "description": "One short sentence the user will read on the proposal card." },
+        "ops": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "enum": ["move_block", "remove_block", "drop_task"] },
+              "block_id": { "type": "integer", "description": "For move_block and remove_block." },
+              "task_id": { "type": "integer", "description": "For drop_task." },
+              "date": { "type": "string", "description": "move_block: YYYY-MM-DD." },
+              "start": { "type": "string", "description": "move_block: HH:mm, 24-hour." },
+              "end": { "type": "string", "description": "move_block: HH:mm, 24-hour, after start." }
+            },
+            "required": ["op"]
+          }
+        }
+      },
+      "required": ["summary", "ops"]
+    }
+  },
+  {
+    "name": "apply_changes",
+    "description": "Apply a proposal. A small valid change is applied at once and the user gets an Undo. A big change (drops a task, moves it to another day, shifts more than an hour, cuts the load) only applies after the user taps Approve, so this will answer needs_approval until then.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "proposal_id": { "type": "string" }
+      },
+      "required": ["proposal_id"]
+    }
+  },
+  {
+    "name": "add_task",
+    "description": "Add a task. Give dates to put it on several days (one task per day). Give start_time only if he asked for a specific time. Add it, do not ask, when he has told you the title and roughly how long.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "estimate_minutes": { "type": "integer", "minimum": 5, "maximum": 720 },
+        "module": { "type": "string", "description": "For example OS, ADA, PintOS." },
+        "due_date": { "type": "string", "description": "YYYY-MM-DD." },
+        "dates": { "type": "array", "items": { "type": "string" }, "description": "YYYY-MM-DD for each day; use instead of due_date." },
+        "start_time": { "type": "string", "description": "HH:mm. Only when he chose a time." },
+        "priority": { "type": "string", "enum": ["low", "normal", "high"] }
+      },
+      "required": ["title", "estimate_minutes"]
+    }
+  },
+  {
+    "name": "add_commitment",
+    "description": "Add a fixed commitment such as an interview or a meeting. It becomes a locked block on the plan and is added to the Planner calendar. Use it for appointments, not tasks.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD." },
+        "start": { "type": "string", "description": "HH:mm." },
+        "end": { "type": "string", "description": "HH:mm, after start." }
+      },
+      "required": ["title", "date", "start", "end"]
+    }
+  },
+  {
+    "name": "log_progress",
+    "description": "Record work on a task: minutes done and whether it is finished, partly done, or given up. Partly done keeps the task open with less time left.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "task_id": { "type": "integer" },
+        "minutes": { "type": "integer", "minimum": 0, "maximum": 720 },
+        "outcome": { "type": "string", "enum": ["done", "partial", "dropped"] },
+        "note": { "type": "string" }
+      },
+      "required": ["task_id", "minutes", "outcome"]
+    }
+  },
+  {
+    "name": "undo",
+    "description": "Undo a plan change you or the user made, using the change_id returned when it was applied.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "change_id": { "type": "integer" }
+      },
+      "required": ["change_id"]
+    }
+  }
+]
