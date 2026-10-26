@@ -30,6 +30,14 @@ android {
         buildConfigField("String", "WORKER_URL", "\"${localProps.getProperty("WORKER_URL", "")}\"")
     }
 
+    // Debug builds run Compose far slower than a release build does. This one is signed with the debug key so it installs
+    // over the debug build keeping its data, and the Google sign-in set up for that key keeps working.
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
