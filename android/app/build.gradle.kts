@@ -53,6 +53,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.play.services.auth)
+    implementation(libs.androidx.health.connect)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
