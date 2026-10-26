@@ -70,4 +70,115 @@ class ReadinessTest {
         assertEquals(150 + 160, merged.asleepMin)
     }
 
+    @Test
+    fun `lights-out delay is measured from 00 15`() {
+        assertEquals(0, ReadinessEngine.lightsOutDelayMin(LocalTime.of(0, 15)))
+        assertEquals(0, ReadinessEngine.lightsOutDelayMin(LocalTime.of(23, 30)))
+        assertEquals(72, ReadinessEngine.lightsOutDelayMin(LocalTime.of(1, 27)))
+    }
+
+    @Test
+    fun `short single block after a good week is amber`() {
+        val history = fullNights("2026-10-22", 6)
+        val night = SleepGrouping.group(listOf(singleBlock), zone).single()
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(night, history + night, doneRatio = null, zone))
+        assertEquals(213, r.inputs.asleepMin)
+        assertEquals(207, r.inputs.debtMin)
+        assertEquals(72, r.inputs.lightsOutDelayMin)
+        assertEquals(59, r.score)
+        assertEquals(ReadinessBand.AMBER, r.band)
+    }
+
+    @Test
+    fun `split night with enough total sleep and early lights-out is green`() {
+        val history = fullNights("2026-10-22", 6)
+        val night = SleepGrouping.group(listOf(splitFirst, splitSecond), zone).single()
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(night, history + night, doneRatio = null, zone))
+        assertEquals(ReadinessBand.GREEN, r.band)
+        assertEquals(93, r.score)
+    }
+
+    @Test
+    fun `sleeping through the night scores green`() {
+        val night = SleepGrouping.group(listOf(sleptThrough), zone).single()
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(night, fullNights("2026-10-22", 6) + night, doneRatio = 1.0, zone))
+        assertEquals(100, r.score)
+    }
+
+    @Test
+    fun `his typical six hours and 01 27 lights-out is amber`() {
+        val typical = (0 until 7).map { i ->
+            val d = LocalDate.parse("2026-10-22").plusDays(i.toLong())
+            SleepNight(d, listOf(SleepBlock(d.atTime(1, 27).atZone(zone).toInstant(), d.atTime(7, 27).atZone(zone).toInstant(), 360)))
+        }
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(typical.last(), typical, doneRatio = null, zone))
+        assertEquals(ReadinessBand.AMBER, r.band)
+    }
+
+    @Test
+    fun `bands split at 70 and 40`() {
+        assertEquals(ReadinessBand.GREEN, ReadinessBand.of(70))
+        assertEquals(ReadinessBand.AMBER, ReadinessBand.of(69))
+        assertEquals(ReadinessBand.AMBER, ReadinessBand.of(40))
+        assertEquals(ReadinessBand.RED, ReadinessBand.of(39))
+    }
+
+    @Test
+    fun `no sleep data for last night means waiting, never a score`() {
+        val state = ReadinessEngine.evaluate(at("2026-10-28", "08:00"), zone, LocalTime.of(8, 45), fullNights("2026-10-22", 6), null)
+        assertEquals(ReadinessState.Waiting, state)
+    }
+
+    @Test
+    fun `after the first block at Fajr time it is provisional with back-to-bed advice`() {
+        val nights = fullNights("2026-10-22", 6) + SleepGrouping.group(listOf(splitFirst), zone)
+        val state = ReadinessEngine.evaluate(at("2026-10-28", "05:30"), zone, LocalTime.of(8, 45), nights, null)
+        assertIs<ReadinessState.Provisional>(state)
+        assertEquals(282, state.asleepSoFarMin)
+        assertEquals(BackToBedAdvice(sleepMin = 138, alarm = LocalTime.of(8, 45)), state.advice)
+    }
+
+    @Test
+    fun `advice is capped by the time left before the alarm`() {
+        assertEquals(BackToBedAdvice(60, LocalTime.of(8, 45)), ReadinessEngine.advice(at("2026-10-28", "07:45"), zone, LocalTime.of(8, 45), asleepSoFar = 100))
+        assertNull(ReadinessEngine.advice(at("2026-10-28", "09:00"), zone, LocalTime.of(8, 45), asleepSoFar = 100))
+    }
+
+    @Test
+    fun `final waits until 30 minutes after the last sleep, or 10 00`() {
+        val nights = fullNights("2026-10-22", 6) + SleepGrouping.group(listOf(splitFirst, splitSecond), zone)
+        val evaluate = { time: String -> ReadinessEngine.evaluate(at("2026-10-28", time), zone, LocalTime.of(8, 45), nights, null) }
+        assertIs<ReadinessState.Provisional>(evaluate("09:30"))
+        assertIs<ReadinessState.Final>(evaluate("09:50"))
+
+        val early = fullNights("2026-10-22", 6) + SleepGrouping.group(listOf(session("2026-10-28", "00:30", "2026-10-28", "05:00")), zone)
+        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "06:00"), zone, LocalTime.of(8, 45), early, null))
+        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "09:00"), zone, LocalTime.of(8, 45), early, null))
+        assertIs<ReadinessState.Final>(ReadinessEngine.evaluate(at("2026-10-28", "10:00"), zone, LocalTime.of(8, 45), early, null))
+        // A confirmed unlock after 07:00 settles it earlier, but not before 07:00.
+        assertIs<ReadinessState.Final>(ReadinessEngine.evaluate(at("2026-10-28", "07:30"), zone, LocalTime.of(8, 45), early, null, awakeConfirmed = true))
+        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "06:30"), zone, LocalTime.of(8, 45), early, null, awakeConfirmed = true))
+    }
+
+    @Test
+    fun `median lights-out is taken across the evening boundary`() {
+        val nights = listOf("23:50", "00:30", "01:27").mapIndexed { i, t ->
+            val d = LocalDate.parse("2026-10-24").plusDays(i.toLong())
+            val start = LocalTime.parse(t).let { lt -> if (lt >= LocalTime.of(18, 0)) d.minusDays(1).atTime(lt) else d.atTime(lt) }
+            SleepNight(d, listOf(SleepBlock(start.atZone(zone).toInstant(), start.plusHours(6).atZone(zone).toInstant(), 360)))
+        }
+        assertEquals(LocalTime.of(0, 30), ReadinessEngine.medianLightsOut(nights, zone))
+        assertNull(ReadinessEngine.medianLightsOut(emptyList(), zone))
+    }
+
+    @Test
+    fun `forecast shows what an on-time lights-out buys against his usual late one`() {
+        val history = fullNights("2026-10-22", 6)
+        val tonight = LocalDate.parse("2026-10-27")
+        val onTime = ReadinessEngine.forecast(LocalTime.of(0, 15), LocalTime.of(8, 45), tonight, history, null)
+        val late = ReadinessEngine.forecast(LocalTime.of(1, 27), LocalTime.of(8, 45), tonight, history, null)
+        assertEquals(ReadinessBand.GREEN, onTime.band)
+        assertTrue(onTime.score > late.score)
+        assertEquals(433, onTime.inputs.asleepMin)
+    }
 }
