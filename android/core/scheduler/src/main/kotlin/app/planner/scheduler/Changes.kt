@@ -20,7 +20,7 @@ enum class ChangeSize { SMALL, BIG }
 
 enum class ViolationKind {
     UNKNOWN_BLOCK, UNKNOWN_DAY, LOCKED, TOO_SHORT, OUTSIDE_WINDOW,
-    OVERLAP_FIXED, OVERLAP_PRAYER, OVERLAP_BLOCK, BEFORE_AVAILABLE, BEFORE_ANCHOR, NO_BUFFER,
+    OVERLAP_FIXED, OVERLAP_PRAYER, OVERLAP_SLEEP, OVERLAP_BLOCK, BEFORE_AVAILABLE, BEFORE_ANCHOR, NO_BUFFER,
 }
 
 /** [hard] violations reject the change; soft ones (a missing buffer) are only warnings. */
@@ -102,6 +102,9 @@ private fun Scheduler.checkBlock(block: Block, all: List<Block>, state: PlanStat
     }
     if (layout.prayerSlots.any { it.overlaps(slot) }) {
         out += Violation(block.id, ViolationKind.OVERLAP_PRAYER, "That clashes with prayer time")
+    }
+    if (layout.sleepSlots.any { it.overlaps(slot) }) {
+        out += Violation(block.id, ViolationKind.OVERLAP_SLEEP, "That's while you're asleep")
     }
     val others = all.filter { it.id != block.id && it.date == block.date }
     if (others.any { Slot(it.start.toMinuteOfDay(), it.end.toMinuteOfDay()).overlaps(slot) }) {

@@ -60,4 +60,13 @@ class AsleepTest {
         assertTrue(week.blocks.single().start >= time("09:30"))
     }
 
+    @Test
+    fun `moving a block onto sleep is rejected`() {
+        val sleepyCtx = ctx(spans = arrayOf(span("2026-10-26", "07:04", "2026-10-26", "09:14")))
+        val block = Block(1, 1, date("2026-10-26"), time("10:00"), time("11:00"))
+        val state = PlanState(listOf(block), mapOf(date("2026-10-26") to sleepyCtx), emptyMap())
+        val move = ChangeSet(listOf(Op.Move(1, date("2026-10-26"), time("09:00"), time("10:00"))), Actor.USER)
+        val v = scheduler.validate(move, state)
+        assertTrue(ViolationKind.OVERLAP_SLEEP in v.violations.filter { it.hard }.map { it.kind })
+    }
 }
