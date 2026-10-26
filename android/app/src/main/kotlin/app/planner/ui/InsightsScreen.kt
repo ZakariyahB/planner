@@ -39,6 +39,9 @@ import app.planner.insights.SocialRow
 import app.planner.insights.WeeklyReview
 import app.planner.social.SocialNudges
 import app.planner.social.SocialTimeCard
+import app.planner.routines.RoutineLaunch
+import app.planner.routines.LaunchTarget
+import androidx.compose.material3.TextButton
 import app.planner.ui.theme.LocalStatusColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -50,7 +53,7 @@ fun InsightsScreen(vm: InsightsViewModel) {
     LaunchedEffect(Unit) { vm.refresh() }
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         item {
@@ -61,14 +64,15 @@ fun InsightsScreen(vm: InsightsViewModel) {
                 if (from != null && to != null) Text(rangeLabel(from, to), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        item { TextButton(onClick = { RoutineLaunch.open(LaunchTarget.SUNDAY_REVIEW) }) { Text("Start your weekly review") } }
         when {
             !ui.loaded -> item { Text("Working it out…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             !ui.hasAnyData -> item { EmptyInsights() }
             else -> {
                 ui.review?.let { item { ReviewSection(it) } }
+                if (ui.done.any { it.plannedMin > 0 }) item { DoneSection(ui.done) }
                 if (ui.sleep.isNotEmpty()) item { SleepSection(ui.sleep) }
                 if (ui.lights.isNotEmpty()) item { LightsOutSection(ui.lights) }
-                if (ui.done.any { it.plannedMin > 0 }) item { DoneSection(ui.done) }
                 if (ui.social.isNotEmpty()) item { SocialSection(ui.social) }
             }
         }
