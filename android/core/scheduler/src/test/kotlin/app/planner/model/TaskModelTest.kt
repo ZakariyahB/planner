@@ -26,7 +26,7 @@ class TaskModelTest {
     @Test
     fun `template round trips through json`() {
         val template = WeeklyTemplate(
-            listOf(TemplateItem("lec", DayOfWeek.TUESDAY, "Lecture catch-up", "OS", 90, Anchor(Prayer.ASR, 15), Priority.HIGH)),
+            listOf(TemplateItem("lec", listOf(DayOfWeek.TUESDAY), "Lecture catch-up", "OS", 90, Anchor(Prayer.ASR, 15), Priority.HIGH)),
         )
         assertEquals(template, WeeklyTemplate.fromJson(template.toJson()))
     }
@@ -35,8 +35,8 @@ class TaskModelTest {
     fun `expand places each item on its weekday, due end of day, local time`() {
         val template = WeeklyTemplate(
             listOf(
-                TemplateItem("a", DayOfWeek.MONDAY, "Mon thing", estMin = 30),
-                TemplateItem("b", DayOfWeek.SUNDAY, "Sun thing", estMin = 60),
+                TemplateItem("a", listOf(DayOfWeek.MONDAY), "Mon thing", estMin = 30),
+                TemplateItem("b", listOf(DayOfWeek.SUNDAY), "Sun thing", estMin = 60),
             ),
         )
         val tasks = template.expand(monday, london)
@@ -48,7 +48,7 @@ class TaskModelTest {
 
     @Test
     fun `expand skips keys that already exist`() {
-        val template = WeeklyTemplate(listOf(TemplateItem("a", DayOfWeek.MONDAY, "Mon thing", estMin = 30)))
+        val template = WeeklyTemplate(listOf(TemplateItem("a", listOf(DayOfWeek.MONDAY), "Mon thing", estMin = 30)))
         assertTrue(template.expand(monday, london, existingKeys = setOf("a@2026-10-26")).isEmpty())
         assertEquals(1, template.expand(monday.plusWeeks(1), london, setOf("a@2026-10-26")).size)
     }
