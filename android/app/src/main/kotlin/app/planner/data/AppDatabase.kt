@@ -22,9 +22,12 @@ import javax.inject.Singleton
         ChangeLogEntity::class,
         SleepEntity::class,
         ReadinessEntity::class,
+        ChatMessageEntity::class,
+        SocialUsageEntity::class,
+        DayLogEntity::class,
     ],
-    version = 4,
-    autoMigrations = [AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    version = 5,
+    autoMigrations = [AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun settings(): SettingsDao
@@ -34,6 +37,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun changeLog(): ChangeLogDao
     abstract fun sleep(): SleepDao
     abstract fun readiness(): ReadinessDao
+    abstract fun chat(): ChatDao
+    abstract fun social(): SocialUsageDao
+    abstract fun dayLog(): DayLogDao
 }
 
 @Module
@@ -55,6 +61,9 @@ object DatabaseModule {
     @Provides fun changeLogDao(db: AppDatabase): ChangeLogDao = db.changeLog()
     @Provides fun sleepDao(db: AppDatabase): SleepDao = db.sleep()
     @Provides fun readinessDao(db: AppDatabase): ReadinessDao = db.readiness()
+    @Provides fun chatDao(db: AppDatabase): ChatDao = db.chat()
+    @Provides fun socialUsageDao(db: AppDatabase): SocialUsageDao = db.social()
+    @Provides fun dayLogDao(db: AppDatabase): DayLogDao = db.dayLog()
 
     @Provides fun clock(): Clock = Clock.systemDefaultZone()
 }

@@ -27,6 +27,8 @@ data class BlockEntity(
     /** What the Planner calendar held at the last sync; lets the sync tell who changed a block. */
     val syncedStartMillis: Long?,
     val syncedEndMillis: Long?,
+    /** Name of a commitment (kind FIXED), which has no task. */
+    val label: String? = null,
 )
 
 fun Block.toEntity(syncedStartMillis: Long? = null, syncedEndMillis: Long? = null) = BlockEntity(
@@ -41,6 +43,7 @@ fun Block.toEntity(syncedStartMillis: Long? = null, syncedEndMillis: Long? = nul
     origin = origin.name,
     syncedStartMillis = syncedStartMillis,
     syncedEndMillis = syncedEndMillis,
+    label = label,
 )
 
 fun BlockEntity.toBlock() = Block(
@@ -53,6 +56,7 @@ fun BlockEntity.toBlock() = Block(
     locked = locked,
     gcalEventId = gcalEventId,
     origin = BlockOrigin.valueOf(origin),
+    label = label,
 )
 
 @Dao
