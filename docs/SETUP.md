@@ -157,3 +157,4 @@ If something is off, MANUAL.md ends with a troubleshooting section keyed to the 
 | Worker tests | `cd worker && npm ci && npm run typecheck && npm test` |
 | Scheduler tests (no Android SDK needed) | `cd android && ./gradlew :core:scheduler:test -PcoreOnly` |
 | App build and all tests | `cd android && ./gradlew :core:scheduler:test :app:assembleDebug :app:testDebugUnitTest` |
+| Install the smooth (release) build on your phone | `cd android && ./gradlew :app:installRelease` (use this for everyday use; Run in Android Studio installs the slower debug build) |
