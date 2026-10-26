@@ -146,6 +146,13 @@ class NotificationTextsTest {
     }
 
     @Test
+    fun `the forecast line is the one shared by the notification and the sheet`() {
+        val f = ForecastNote(LocalTime.of(0, 15), 78, LocalTime.of(1, 27), 52)
+        assertEquals("Lights-out at 00:15 gives readiness 78; your usual 01:27 gives 52.", NotificationTexts.forecastLine(f))
+        assertEquals("Lights-out at 00:15 gives readiness 78.", NotificationTexts.forecastLine(f.copy(usualLightsOut = null, usualScore = null)))
+    }
+
+    @Test
     fun `lights-out warning gives the time in bed`() {
         val t = NotificationTexts.lightsOutSoon(lightsOut = LocalTime.of(0, 15), wake = alarm)
         assertEquals("Lights-out in 30 minutes", t.title)
