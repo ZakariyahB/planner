@@ -1,0 +1,16 @@
+name = "planner-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_EMAIL = "bello.zakariyah20@gmail.com"
+# Must equal the Web client ID in Google Cloud; the ID token's `aud` is checked against it.
+GOOGLE_WEB_CLIENT_ID = "REPLACE_WITH_WEB_CLIENT_ID"
+MONTHLY_CAP_GBP = "15"
+
+# Create with: wrangler kv namespace create USAGE, then paste the id here.
+[[kv_namespaces]]
+binding = "USAGE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secret (not stored here): wrangler secret put ANTHROPIC_API_KEY
