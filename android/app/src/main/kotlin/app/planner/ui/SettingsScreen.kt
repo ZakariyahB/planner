@@ -1,174 +1,164 @@
 package app.planner.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.planner.BuildConfig
 import app.planner.ai.AiSpendRepository
-import app.planner.sleep.HealthStatus
 import app.planner.social.SocialSettingsSection
-import java.time.LocalTime
-import java.time.ZoneId
-import java.util.Locale
+
+/** Where Settings can be. HOME is the list; the rest are the pages it leads to. */
+enum class SettingsPage(val title: String) {
+    HOME("Settings"),
+    DAY_RULES("Day rules"),
+    TEMPLATE("Weekly template"),
+    CALENDARS("Calendars"),
+    SLEEP("Sleep"),
+    SOCIAL("Social media"),
+    NOTIFICATIONS("Notifications"),
+    ASSISTANT("Assistant"),
+    HISTORY("Change history"),
+}
 
 @Composable
 fun SettingsScreen(
+    page: SettingsPage,
+    onNavigate: (SettingsPage) -> Unit,
     calVm: CalendarViewModel,
     readinessVm: ReadinessViewModel,
     planVm: PlanViewModel,
     chatVm: ChatViewModel,
+    tasksVm: TasksViewModel,
     onConnect: () -> Unit,
     onAllowHealth: () -> Unit,
-    onOpenTemplate: () -> Unit,
 ) {
-    val calendars by calVm.calendars.collectAsStateWithLifecycle()
-    val selected by calVm.selected.collectAsStateWithLifecycle()
-    val sync by calVm.sync.collectAsStateWithLifecycle()
-    val lastSynced by calVm.lastSyncedAt.collectAsStateWithLifecycle()
-    val health by readinessVm.health.collectAsStateWithLifecycle()
-    val fajr by readinessVm.fajrThisWeek.collectAsStateWithLifecycle()
-    val problem by planVm.syncProblem.collectAsStateWithLifecycle()
-    val spend by chatVm.spendGbp.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    var pickingFajr by remember { mutableStateOf(false) }
+    when (page) {
+        SettingsPage.HOME -> SettingsHome(onNavigate)
+        SettingsPage.DAY_RULES -> DayRulesScreen(hiltViewModel())
+        SettingsPage.TEMPLATE -> TemplateScreen(tasksVm, onBack = { onNavigate(SettingsPage.HOME) })
+        SettingsPage.CALENDARS -> CalendarsPage(calVm, planVm, onConnect)
+        SettingsPage.SLEEP -> SleepPage(readinessVm, onAllowHealth)
+        SettingsPage.SOCIAL -> SettingsList { item { SocialSettingsSection() } }
+        SettingsPage.NOTIFICATIONS -> SettingsList { item { RoutineSettingsSection() } }
+        SettingsPage.ASSISTANT -> AssistantPage(chatVm)
+        SettingsPage.HISTORY -> HistoryScreen(hiltViewModel())
+    }
+}
+
+@Composable
+private fun SettingsList(content: LazyListScope.() -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content,
+    )
+}
+
+private class HomeRow(val page: SettingsPage, val title: String, val status: (SettingsHomeUi) -> String)
+
+private class HomeGroup(val title: String, val rows: List<HomeRow>)
+
+private val HOME_GROUPS = listOf(
+    HomeGroup("Plan", listOf(
+        HomeRow(SettingsPage.DAY_RULES, "Day rules") { it.dayRules },
+        HomeRow(SettingsPage.TEMPLATE, "Weekly template") { it.template },
+        HomeRow(SettingsPage.CALENDARS, "Calendars") { it.calendars },
+    )),
+    HomeGroup("Body", listOf(
+        HomeRow(SettingsPage.SLEEP, "Sleep and Health Connect") { it.sleep },
+    )),
+    HomeGroup("Time", listOf(
+        HomeRow(SettingsPage.SOCIAL, "Social media") { it.social },
+        HomeRow(SettingsPage.NOTIFICATIONS, "Notifications") { "Reminders and plan prompts" },
+    )),
+    HomeGroup("Assistant", listOf(
+        HomeRow(SettingsPage.ASSISTANT, "Sign in and spend") { it.assistant },
+    )),
+    HomeGroup("Your data", listOf(
+        HomeRow(SettingsPage.HISTORY, "Change history") { "Every change, each can be undone" },
+    )),
+)
+
+@Composable
+private fun SettingsHome(onNavigate: (SettingsPage) -> Unit) {
+    val vm: SettingsHomeViewModel = hiltViewModel()
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.refreshSleepStatus() }
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        item { Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp)) }
-
-        item { SectionTitle("Google Calendar") }
-        item {
-            val state = sync
-            val synced = lastSynced
-            val status = when {
-                state is SyncUi.Syncing -> "Syncing…"
-                state is SyncUi.Failed -> state.message
-                state is SyncUi.NeedsConsent -> "Access needs approving again"
-                synced != null -> "Connected · last synced ${synced.atZone(ZoneId.systemDefault()).format(syncFormat)}"
-                else -> "Not connected"
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(status, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (lastSynced == null || sync is SyncUi.NeedsConsent) {
-                        Button(onClick = onConnect) { Text("Connect") }
-                    } else {
-                        OutlinedButton(onClick = calVm::refresh, enabled = sync !is SyncUi.Syncing) { Text("Sync now") }
+        item { Box(Modifier.height(2.dp)) }
+        HOME_GROUPS.forEach { group ->
+            item(key = group.title) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(group.title.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))) {
+                        group.rows.forEachIndexed { index, row ->
+                            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Row(
+                                Modifier.fillMaxWidth().clickable { onNavigate(row.page) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(row.title, style = MaterialTheme.typography.bodyLarge)
+                                    Text(row.status(ui), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }
         }
-
-        if (calendars.isNotEmpty()) {
+        if (ui.assistantConfigured) {
             item {
-                Text(
-                    "Ticked calendars supply fixed commitments (timed events only). Untick any you don't attend live.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            items(calendars, key = { it.id }) { cal ->
-                val on = cal.id in selected
-                Row(
-                    Modifier.fillMaxWidth().clickable { calVm.setCalendarSelected(cal.id, !on) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(checked = on, onCheckedChange = { calVm.setCalendarSelected(cal.id, it) })
-                    Text(cal.name)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("AI spend this month", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(ui.assistant.substringBefore(" this month"), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Box(Modifier.fillMaxWidth().height(6.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(3.dp))) {
+                        Box(
+                            Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth((ui.spendGbp / AiSpendRepository.CAP_GBP).toFloat().coerceIn(0.02f, 1f))
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+                        )
+                    }
                 }
             }
         }
-
-        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-        item { SectionTitle("Planner calendar") }
         item {
             Text(
-                problem ?: "Planned blocks are mirrored to a calendar called Planner. Times you change there are read back into the plan.",
+                "Everything stays on this phone except what you send to the assistant, which is summaries only.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 16.dp),
             )
         }
-
-        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-        item { SectionTitle("Sleep") }
-        item {
-            val status = when (val h = health) {
-                HealthStatus.Ready -> "Health Connect connected"
-                HealthStatus.NeedsPermission -> "Health Connect needs your permission to read sleep"
-                is HealthStatus.Unavailable -> h.reason
-                null -> "Checking Health Connect…"
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(status, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (health == HealthStatus.NeedsPermission) Button(onClick = onAllowHealth) { Text("Allow") }
-                    OutlinedButton(onClick = readinessVm::syncSleep) { Text("Sync sleep now") }
-                }
-            }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Fajr this week: ${fajr?.let { timeFormat.format(it) } ?: "not set"}")
-                OutlinedButton(onClick = { pickingFajr = true }) { Text(if (fajr == null) "Set" else "Change") }
-            }
-        }
-
-        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-        item { RoutineSettingsSection() }
-
-        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-        item { SectionTitle("Assistant") }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (BuildConfig.WORKER_URL.isBlank() || BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
-                    Text(
-                        "Not set up yet: add WORKER_URL and GOOGLE_WEB_CLIENT_ID to android/local.properties and rebuild.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Text(
-                        "AI spend this month: " + String.format(Locale.UK, "£%.2f of £%.0f", spend, AiSpendRepository.CAP_GBP),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedButton(onClick = { chatVm.signIn(context) }) { Text("Sign in for the assistant") }
-                }
-            }
-        }
-
-        item { SocialSettingsSection() }
-
-        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-        item { SectionTitle("Tasks") }
-        item { OutlinedButton(onClick = onOpenTemplate) { Text("Weekly template") } }
-    }
-
-    if (pickingFajr) {
-        TimePickerDialog(
-            title = "Fajr this week",
-            initial = fajr ?: LocalTime.of(5, 30),
-            onConfirm = { readinessVm.saveFajr(it); pickingFajr = false },
-            onDismiss = { pickingFajr = false },
-        )
     }
 }

@@ -49,7 +49,7 @@ fun PlannerRoot() {
 
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
-    var showTemplate by rememberSaveable { mutableStateOf(false) }
+    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
@@ -93,17 +93,17 @@ fun PlannerRoot() {
         }
     }
 
-    BackHandler(enabled = showSettings) {
-        if (showTemplate) showTemplate = false else showSettings = false
-    }
+    // Back steps up one level: a settings page to the list, the list to wherever you were.
+    val goBack = { if (settingsPage != SettingsPage.HOME) settingsPage = SettingsPage.HOME else showSettings = false }
+    BackHandler(enabled = showSettings) { goBack() }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(if (showSettings) "Settings" else "Planner") },
-                navigationIcon = { if (showSettings) TextButton(onClick = { if (showTemplate) showTemplate = false else showSettings = false }) { Text("Back") } },
-                actions = { if (!showSettings) TextButton(onClick = { showSettings = true }) { Text("Settings") } },
+                title = { Text(if (showSettings) settingsPage.title else "Planner") },
+                navigationIcon = { if (showSettings) TextButton(onClick = { goBack() }) { Text("Back") } },
+                actions = { if (!showSettings) TextButton(onClick = { settingsPage = SettingsPage.HOME; showSettings = true }) { Text("Settings") } },
             )
         },
         bottomBar = {
@@ -111,7 +111,7 @@ fun PlannerRoot() {
                 Tab.entries.forEach { t ->
                     NavigationBarItem(
                         selected = !showSettings && tab == t,
-                        onClick = { tab = t; showSettings = false; showTemplate = false },
+                        onClick = { tab = t; showSettings = false; settingsPage = SettingsPage.HOME },
                         icon = {},
                         label = { Text(t.label) },
                         alwaysShowLabel = true,
@@ -122,8 +122,12 @@ fun PlannerRoot() {
     ) { padding ->
         Box(Modifier.padding(padding)) {
             if (showSettings) {
-                if (showTemplate) TemplateScreen(tasksVm, onBack = { showTemplate = false })
-                else SettingsScreen(calVm, readinessVm, planVm, chatVm, onConnect, onAllowHealth, onOpenTemplate = { showTemplate = true })
+                SettingsScreen(
+                    page = settingsPage,
+                    onNavigate = { settingsPage = it },
+                    calVm = calVm, readinessVm = readinessVm, planVm = planVm, chatVm = chatVm, tasksVm = tasksVm,
+                    onConnect = onConnect, onAllowHealth = onAllowHealth,
+                )
             } else when (tab) {
                 Tab.TODAY -> TodayScreen(
                     tasksVm, calVm, planVm, readinessVm, onConnect, onAllowHealth,
@@ -140,7 +144,7 @@ fun PlannerRoot() {
     NotificationPermissionPrompt()
     RoutineScreens(
         onAsk = { draft -> chatVm.setDraft(draft); tab = Tab.ASK; showSettings = false },
-        onOpenTemplate = { showSettings = true; showTemplate = true },
+        onOpenTemplate = { showSettings = true; settingsPage = SettingsPage.TEMPLATE },
     )
 
     editor?.let { target ->
