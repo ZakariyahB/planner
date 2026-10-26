@@ -1,0 +1,86 @@
+package app.planner.ui
+
+import android.Manifest
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.planner.routines.Routine
+import app.planner.routines.info
+
+/** Settings → Routines: which notifications to get, and whether the system lets them through. */
+@Composable
+fun RoutineSettingsSection(vm: RoutinePrefsViewModel = hiltViewModel()) {
+    val context = LocalContext.current
+    val enabled by vm.enabled.collectAsStateWithLifecycle()
+
+    // Permissions are changed in system screens; look again when the user comes back.
+    var refresh by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
+    val notificationsOn = remember(refresh) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        vm.markPromptSeen()
+        refresh++
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle("Routines")
+        Text(
+            "Each routine has its own notification channel as well, so you can also mute one from the system settings.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!notificationsOn) {
+            Text(
+                "Notifications are off for Planner, so none of these will show. Planning, ticking and the calendar still work.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Button(onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow") }
+                }
+                OutlinedButton(onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }) { Text("Notification settings") }
+            }
+        }
+        Routine.entries.forEach { routine ->
+            val info = routine.info
+            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(info.label, style = MaterialTheme.typography.bodyLarge)
+                    Text(info.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = enabled[routine] != false, onCheckedChange = { vm.setEnabled(routine, it) })
+            }
+        }
+    }
+}

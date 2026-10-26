@@ -133,6 +133,8 @@ fun PlannerRoot() {
         }
     }
 
+    NotificationPermissionPrompt()
+
     editor?.let { target ->
         TaskEditor(
             task = target.task,
