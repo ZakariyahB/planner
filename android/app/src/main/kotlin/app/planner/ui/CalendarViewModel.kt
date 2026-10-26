@@ -11,12 +11,14 @@ import app.planner.calendar.FixedEvent
 import app.planner.calendar.FixedEvents
 import app.planner.calendar.SyncResult
 import app.planner.data.SettingsRepository
+import app.planner.errors.PlainErrors
 import app.planner.plan.PlanRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -84,13 +86,19 @@ class CalendarViewModel @Inject constructor(
 
     private fun launchSync(block: suspend () -> SyncResult) = viewModelScope.launch {
         _sync.value = SyncUi.Syncing
-        _sync.value = when (val r = block()) {
-            SyncResult.Synced -> {
-                plan.replan() // fixed commitments may have changed
-                SyncUi.Idle
+        _sync.value = try {
+            when (val r = block()) {
+                SyncResult.Synced -> {
+                    plan.replan() // fixed commitments may have changed
+                    SyncUi.Idle
+                }
+                is SyncResult.NeedsConsent -> SyncUi.NeedsConsent(r.sender)
+                is SyncResult.Failed -> SyncUi.Failed(r.message)
             }
-            is SyncResult.NeedsConsent -> SyncUi.NeedsConsent(r.sender)
-            is SyncResult.Failed -> SyncUi.Failed(r.message)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            SyncUi.Failed(PlainErrors.CALENDAR_UNKNOWN)
         }
     }
 }

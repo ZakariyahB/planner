@@ -11,6 +11,7 @@ import app.planner.data.SLEEP_SOURCE_MANUAL
 import app.planner.data.SleepDao
 import app.planner.data.toEntity
 import app.planner.data.toSession
+import app.planner.errors.PlainErrors
 import app.planner.readiness.SleepSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
@@ -19,6 +20,7 @@ import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -49,9 +51,13 @@ class SleepRepository @Inject constructor(
 
     suspend fun healthStatus(): HealthStatus {
         return when (HealthConnectClient.getSdkStatus(context)) {
-            HealthConnectClient.SDK_AVAILABLE -> {
+            HealthConnectClient.SDK_AVAILABLE -> try {
                 val granted = HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
                 if (PERMISSIONS.all { it in granted }) HealthStatus.Ready else HealthStatus.NeedsPermission
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                HealthStatus.Unavailable("Couldn't reach Health Connect. Open the Health Connect app once, then tap Refresh.")
             }
             HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
                 HealthStatus.Unavailable("Health Connect needs an update from the Play Store")
@@ -92,7 +98,11 @@ class SleepRepository @Inject constructor(
         } catch (e: SecurityException) {
             SleepSyncResult.NotReady(HealthStatus.NeedsPermission)
         } catch (e: IOException) {
-            SleepSyncResult.Failed("Couldn't read Health Connect")
+            SleepSyncResult.Failed(PlainErrors.HEALTH_READ_FAILED)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            SleepSyncResult.Failed(PlainErrors.HEALTH_READ_FAILED)
         }
     }
 
