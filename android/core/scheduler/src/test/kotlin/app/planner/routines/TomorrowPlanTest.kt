@@ -98,4 +98,31 @@ class TomorrowPlanTest {
         assertEquals(listOf(1L), deferred.map { it.id })
         assertNull(TomorrowPlan.deferrals(rows, emptySet(), tasks, tomorrow, zone).firstOrNull())
     }
+
+    // The card on Today
+
+    private fun pending(sentOn: String?, approvedFor: String?, now: Instant) =
+        TomorrowPlan.pendingFor(sentOn?.let(LocalDate::parse), approvedFor?.let(LocalDate::parse), now, zone)
+
+    @Test
+    fun `the plan is pending from the 23 30 notice until 06 00 on the day it is for`() {
+        assertEquals(LocalDate.parse("2026-10-28"), pending("2026-10-27", null, instant("2026-10-27", "23:40")))
+        assertEquals(LocalDate.parse("2026-10-28"), pending("2026-10-27", null, instant("2026-10-28", "05:59")))
+        assertNull(pending("2026-10-27", null, instant("2026-10-28", "06:00")))
+    }
+
+    @Test
+    fun `an approved plan is no longer pending`() {
+        assertNull(pending("2026-10-27", "2026-10-28", instant("2026-10-27", "23:40")))
+    }
+
+    @Test
+    fun `an approval of another day does not count`() {
+        assertEquals(LocalDate.parse("2026-10-28"), pending("2026-10-27", "2026-10-27", instant("2026-10-27", "23:40")))
+    }
+
+    @Test
+    fun `without a notice there is nothing pending`() {
+        assertNull(pending(null, null, instant("2026-10-27", "23:40")))
+    }
 }

@@ -4,6 +4,7 @@ import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.scheduler.Block
 import app.planner.scheduler.BlockKind
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -49,4 +50,18 @@ object TomorrowPlan {
     /** The tasks to defer when he approves: the switched-off rows that are still on the plan. */
     fun deferrals(rows: List<PlanRow>, excluded: Set<Long>, tasks: Map<Long, Task>, tomorrow: LocalDate, zone: ZoneId): List<Task> =
         rows.filter { it.taskId in excluded }.mapNotNull { row -> tasks[row.taskId]?.let { defer(it, tomorrow, zone) } }
+
+    private val PENDING_UNTIL: LocalTime = LocalTime.of(6, 0)
+
+    /**
+     * The day whose plan still waits for approval: the day after the evening the 23:30 notice went out
+     * ([sentOn]), until 06:00 on that day or until it is approved. Null when nothing is waiting.
+     */
+    fun pendingFor(sentOn: LocalDate?, approvedFor: LocalDate?, now: Instant, zone: ZoneId): LocalDate? {
+        if (sentOn == null) return null
+        val planDate = sentOn.plusDays(1)
+        if (approvedFor == planDate) return null
+        val until = planDate.atTime(PENDING_UNTIL).atZone(zone).toInstant()
+        return planDate.takeIf { now < until }
+    }
 }
