@@ -51,6 +51,7 @@ fun PlannerRoot() {
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
+    var progressFor by remember { mutableStateOf<Task?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
     // Google's consent screen opens only after the user taps Connect, never on a silent background sync.
@@ -132,9 +133,10 @@ fun PlannerRoot() {
                 Tab.TODAY -> TodayScreen(
                     tasksVm, calVm, planVm, readinessVm, onConnect, onAllowHealth,
                     onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) },
+                    onLogProgress = { progressFor = it },
                 )
                 Tab.CALENDAR -> CalendarScreen(planVm)
-                Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) })
+                Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) }, onLogProgress = { progressFor = it })
                 Tab.ASK -> ChatScreen(chatVm)
                 Tab.INSIGHTS -> InsightsScreen(insightsVm)
             }
@@ -146,6 +148,14 @@ fun PlannerRoot() {
         onAsk = { draft -> chatVm.setDraft(draft); tab = Tab.ASK; showSettings = false },
         onOpenTemplate = { showSettings = true; settingsPage = SettingsPage.TEMPLATE },
     )
+
+    progressFor?.let { task ->
+        ProgressSheet(
+            task = task,
+            onSave = { minutes, outcome -> tasksVm.logProgress(task, minutes, outcome); progressFor = null },
+            onDismiss = { progressFor = null },
+        )
+    }
 
     editor?.let { target ->
         TaskEditor(
