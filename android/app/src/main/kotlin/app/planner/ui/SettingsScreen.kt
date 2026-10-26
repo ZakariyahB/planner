@@ -37,6 +37,7 @@ enum class SettingsPage(val title: String) {
     SLEEP("Sleep"),
     SOCIAL("Social media"),
     NOTIFICATIONS("Notifications"),
+    APPEARANCE("Appearance"),
     ASSISTANT("Assistant"),
     HISTORY("Change history"),
     BACKUP("Backup and restore"),
@@ -62,6 +63,7 @@ fun SettingsScreen(
         SettingsPage.SLEEP -> SleepPage(readinessVm, onAllowHealth)
         SettingsPage.SOCIAL -> SettingsList { item { SocialSettingsSection() } }
         SettingsPage.NOTIFICATIONS -> SettingsList { item { RoutineSettingsSection() } }
+        SettingsPage.APPEARANCE -> AppearancePage(hiltViewModel())
         SettingsPage.ASSISTANT -> AssistantPage(chatVm)
         SettingsPage.HISTORY -> HistoryScreen(hiltViewModel())
         SettingsPage.BACKUP -> BackupScreen(hiltViewModel())
@@ -93,6 +95,9 @@ private val HOME_GROUPS = listOf(
     HomeGroup("Time", listOf(
         HomeRow(SettingsPage.SOCIAL, "Social media") { it.social },
         HomeRow(SettingsPage.NOTIFICATIONS, "Notifications") { "Reminders and plan prompts" },
+    )),
+    HomeGroup("Look", listOf(
+        HomeRow(SettingsPage.APPEARANCE, "Appearance") { it.appearance },
     )),
     HomeGroup("Assistant", listOf(
         HomeRow(SettingsPage.ASSISTANT, "Sign in and spend") { it.assistant },
