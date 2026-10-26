@@ -97,6 +97,8 @@ fun TodayScreen(
             item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
         }
 
+        item { RoutineCards() }
+
         item { PlanNotes(summary, allTasks, onApproveCut = planVm::approveLoadCut) }
 
         item { SectionTitle("Tasks") }

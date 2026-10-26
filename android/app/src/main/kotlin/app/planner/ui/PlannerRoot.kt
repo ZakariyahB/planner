@@ -135,6 +135,12 @@ fun PlannerRoot() {
         }
     }
 
+    NotificationPermissionPrompt()
+    RoutineScreens(
+        onAsk = { draft -> chatVm.setDraft(draft); tab = Tab.ASK; showSettings = false },
+        onOpenTemplate = { showSettings = true; showTemplate = true },
+    )
+
     editor?.let { target ->
         TaskEditor(
             task = target.task,
