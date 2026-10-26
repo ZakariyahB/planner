@@ -23,9 +23,11 @@ object AiErrors {
 
     /** Short, plain wording for the chat. Planning, ticking and the calendar keep working without the AI. */
     fun messageFor(status: Int): String = when (status) {
+        401 -> "Your sign-in has expired. Sign in again to use the assistant."
         402 -> "Monthly AI cap reached (402)"
         413 -> "That conversation is too long (413)"
         429 -> "AI is busy, try again in a minute (429)"
+        in 500..599 -> "The assistant is having trouble right now. Try again in a few minutes ($status)."
         else -> "AI unavailable ($status)"
     }
 }

@@ -8,11 +8,11 @@ import kotlin.test.assertNull
 class AiServiceTest {
     @Test
     fun `errors are put in plain words with the status`() {
-        assertEquals("AI unavailable (401)", AiErrors.messageFor(401))
+        assertEquals("Your sign-in has expired. Sign in again to use the assistant.", AiErrors.messageFor(401))
         assertEquals("Monthly AI cap reached (402)", AiErrors.messageFor(402))
         assertEquals("AI is busy, try again in a minute (429)", AiErrors.messageFor(429))
         assertEquals("That conversation is too long (413)", AiErrors.messageFor(413))
-        assertEquals("AI unavailable (502)", AiErrors.messageFor(502))
+        assertEquals("The assistant is having trouble right now. Try again in a few minutes (502).", AiErrors.messageFor(502))
         assertEquals("AI unavailable (418)", AiErrors.messageFor(418))
     }
 
