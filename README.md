@@ -28,6 +28,10 @@ Worker values live in `worker/wrangler.toml`; the secret is set with `wrangler s
 
 In Google Cloud: enable the Calendar API; set up the OAuth consent screen (Testing, you as a test user, scopes `calendar.readonly` and `calendar.app.created`); create an **Android** OAuth client with package `app.planner` and your debug keystore's SHA-1 (`./gradlew signingReport`). The app uses the Authorization API, so no web client ID is needed until M4.
 
+## Sleep data (M3)
+
+The app reads sleep from Health Connect. In the Fitbit app, turn on sharing to Health Connect (sleep), then tap Allow in the app. Until data arrives, readiness shows "waiting" and sleep can be entered by hand on the Today card.
+
 ## Status
 
-See the milestone list in docs/PLAN.md. M0 (scaffold) and M1 (data in) are written; `:app` has not been compiled yet. M2 is next.
+See the milestone list in docs/PLAN.md. M0 to M3 are written. The pure-Kotlin core (`:core:scheduler`) is tested; the `:app` module was written without an Android SDK to compile against, so check it in Android Studio. M4 (AI) is next.
