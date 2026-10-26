@@ -5,6 +5,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /** One sleep record from Health Connect (or typed in by hand). */
 data class SleepSession(
@@ -66,3 +67,26 @@ object SleepGrouping {
         return blocks
     }
 }
+
+enum class SleepPhaseKind { ASLEEP, AWAKE }
+
+/** One stretch of a night, in local time, for showing when he slept and when he was up. */
+data class SleepPhase(val kind: SleepPhaseKind, val start: LocalTime, val end: LocalTime) {
+    fun label(): String = "${kind.name.lowercase()} ${FORMAT.format(start)}–${FORMAT.format(end)}"
+
+    private companion object {
+        val FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    }
+}
+
+/** Asleep blocks with the awake gaps between them, e.g. asleep 00:32–05:14, awake 05:14–07:04, asleep 07:04–09:14. */
+fun SleepNight.phases(zone: ZoneId): List<SleepPhase> =
+    blocks.flatMapIndexed { i, b ->
+        val asleep = SleepPhase(SleepPhaseKind.ASLEEP, b.start.atZone(zone).toLocalTime(), b.end.atZone(zone).toLocalTime())
+        val next = blocks.getOrNull(i + 1)
+        if (next == null) {
+            listOf(asleep)
+        } else {
+            listOf(asleep, SleepPhase(SleepPhaseKind.AWAKE, asleep.end, next.start.atZone(zone).toLocalTime()))
+        }
+    }

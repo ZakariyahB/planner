@@ -182,3 +182,38 @@ class ReadinessTest {
         assertEquals(433, onTime.inputs.asleepMin)
     }
 }
+
+class SleepPhasesTest {
+    private val zone = ZoneId.of("Europe/London")
+
+    private fun block(from: String, to: String, asleep: Int) = SleepBlock(
+        LocalDate.parse("2026-10-28").atTime(LocalTime.parse(from)).atZone(zone).toInstant(),
+        LocalDate.parse("2026-10-28").atTime(LocalTime.parse(to)).atZone(zone).toInstant(),
+        asleep,
+    )
+
+    @Test
+    fun `a split night reads asleep, awake, asleep`() {
+        val night = SleepNight(LocalDate.parse("2026-10-28"), listOf(block("00:32", "05:14", 282), block("07:04", "09:14", 130)))
+        assertEquals(
+            listOf(
+                SleepPhase(SleepPhaseKind.ASLEEP, LocalTime.of(0, 32), LocalTime.of(5, 14)),
+                SleepPhase(SleepPhaseKind.AWAKE, LocalTime.of(5, 14), LocalTime.of(7, 4)),
+                SleepPhase(SleepPhaseKind.ASLEEP, LocalTime.of(7, 4), LocalTime.of(9, 14)),
+            ),
+            night.phases(zone),
+        )
+    }
+
+    @Test
+    fun `a single block is one asleep phase`() {
+        val night = SleepNight(LocalDate.parse("2026-10-28"), listOf(block("01:27", "05:00", 213)))
+        assertEquals(listOf(SleepPhase(SleepPhaseKind.ASLEEP, LocalTime.of(1, 27), LocalTime.of(5, 0))), night.phases(zone))
+    }
+
+    @Test
+    fun `phases are named for display`() {
+        assertEquals("asleep 00:32–05:14", SleepPhase(SleepPhaseKind.ASLEEP, LocalTime.of(0, 32), LocalTime.of(5, 14)).label())
+        assertEquals("awake 05:14–07:04", SleepPhase(SleepPhaseKind.AWAKE, LocalTime.of(5, 14), LocalTime.of(7, 4)).label())
+    }
+}
