@@ -131,7 +131,7 @@ It coaches on sleep and on stress or workload only. It is not medical advice: fo
 
 ## Social-media time
 
-Planner counts how long your social apps are open and nudges you. It never blocks anything.
+Planner counts how long your social apps are open and nudges you. It never blocks anything. The minutes come from Android's own usage records, the same ones Samsung's Digital Wellbeing is built on, so Planner does not time anything itself; time between an app's screens is not split, and the screen going off ends a session.
 
 1. Turn on **usage access** for Planner (Get set up on Today walks you to the right screen). Planner then also reads the past week from your phone's own usage history, so Reflect isn't empty at first.
 2. In **Settings, Social media**, choose which apps count (Instagram, TikTok, Snapchat, X, Reddit, Facebook and Threads to begin with; you can add others) and set the daily budget: 2 hours on weekdays and 3 on weekends to begin with.

@@ -1,20 +1,33 @@
 package app.planner.social
 
-enum class UsageEventType { FOREGROUND, BACKGROUND }
+enum class UsageEventType {
+    FOREGROUND,
+    BACKGROUND,
 
-/** An app coming to the front or going to the back, as Android's usage events report it. */
-data class UsageEvent(val pkg: String, val type: UsageEventType, val timeMillis: Long)
+    /** The screen went off or the phone shut down: whatever was on screen is no longer in use. */
+    SCREEN_OFF,
+}
+
+/**
+ * An app's screen coming to the front or going to the back, as Android's usage events report it (the same
+ * events its own Digital Wellbeing figures are built from). [activity] tells the screens of one app apart.
+ */
+data class UsageEvent(val pkg: String, val type: UsageEventType, val timeMillis: Long, val activity: String = "")
 
 object UsageSessions {
     /**
-     * Minutes each of [apps] was on screen between [fromMillis] and [toMillis], from its foreground and
-     * background events. A session still open counts up to [nowMillis]; one that began before the window
-     * counts from the start of it. Time is added up before rounding, so many short glances still count.
+     * Minutes each of [apps] was on screen between [fromMillis] and [toMillis], from the phone's own foreground
+     * and background events. An app is in use from the moment its first screen comes to the front until its
+     * last one goes away, so moving between its screens, or having two open side by side, neither splits nor
+     * doubles the time. Screen-off and shutdown end every open session. A session still open counts up to
+     * [nowMillis]; one that began before the window counts from the start of it. Time is added up before
+     * rounding, so many short glances still count.
      */
     fun minutesPerApp(events: List<UsageEvent>, apps: Set<String>, fromMillis: Long, toMillis: Long, nowMillis: Long): Map<String, Int> {
         val end = minOf(toMillis, nowMillis)
         val millis = mutableMapOf<String, Long>()
-        val open = mutableMapOf<String, Long>()
+        val screens = mutableMapOf<String, MutableSet<String>>()
+        val since = mutableMapOf<String, Long>()
         val seen = mutableSetOf<String>()
 
         fun add(pkg: String, from: Long, to: Long) {
@@ -22,23 +35,33 @@ object UsageSessions {
             if (span > 0) millis[pkg] = (millis[pkg] ?: 0L) + span
         }
 
-        for (event in events.filter { it.pkg in apps }.sortedBy { it.timeMillis }) {
+        for (event in events.filter { it.type == UsageEventType.SCREEN_OFF || it.pkg in apps }.sortedBy { it.timeMillis }) {
             when (event.type) {
                 UsageEventType.FOREGROUND -> {
                     seen += event.pkg
-                    if (event.pkg !in open) open[event.pkg] = event.timeMillis
+                    val open = screens.getOrPut(event.pkg) { mutableSetOf() }
+                    if (open.isEmpty()) since[event.pkg] = event.timeMillis
+                    open += event.activity
                 }
                 UsageEventType.BACKGROUND -> {
-                    val started = open.remove(event.pkg)
+                    val open = screens[event.pkg]
                     when {
-                        started != null -> add(event.pkg, started, event.timeMillis)
+                        open != null && event.activity in open -> {
+                            open -= event.activity
+                            if (open.isEmpty()) since.remove(event.pkg)?.let { add(event.pkg, it, event.timeMillis) }
+                        }
                         event.pkg !in seen -> add(event.pkg, fromMillis, event.timeMillis) // began before the window
                     }
                     seen += event.pkg
                 }
+                UsageEventType.SCREEN_OFF -> {
+                    for ((pkg, started) in since) add(pkg, started, event.timeMillis)
+                    since.clear()
+                    screens.values.forEach { it.clear() }
+                }
             }
         }
-        for ((pkg, started) in open) add(pkg, started, end)
+        for ((pkg, started) in since) add(pkg, started, end)
 
         return millis.mapValues { (it.value + 30_000) / 60_000 }.filterValues { it > 0 }.mapValues { it.value.toInt() }
     }
