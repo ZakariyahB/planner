@@ -27,6 +27,7 @@ data class ToolChip(val name: String, val failed: Boolean = false) {
             AiToolNames.APPLY_CHANGES -> "Applied a change"
             AiToolNames.ADD_TASK -> "Added a task"
             AiToolNames.ADD_COMMITMENT -> "Added a commitment"
+            AiToolNames.UPDATE_TASK -> "Changed a task"
             AiToolNames.LOG_PROGRESS -> "Logged progress"
             AiToolNames.UNDO -> "Undid a change"
             else -> name

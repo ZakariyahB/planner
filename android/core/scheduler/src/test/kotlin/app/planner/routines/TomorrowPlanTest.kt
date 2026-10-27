@@ -99,6 +99,36 @@ class TomorrowPlanTest {
         assertNull(TomorrowPlan.deferrals(rows, emptySet(), tasks, tomorrow, zone).firstOrNull())
     }
 
+    @Test
+    fun `a row from an all-day calendar item says so`() {
+        val cal = Task(id = 7, title = "PintOS", estMin = 180, source = app.planner.model.TaskSource.CALENDAR, templateKey = "cal:x|y|2026-10-28")
+        val rows = TomorrowPlan.rows(tomorrow, listOf(block(1, 7, "09:30", "12:30")), mapOf(7L to cal), zone)
+        assertTrue(rows.single().fromCalendar)
+        assertEquals(false, TomorrowPlan.rows(tomorrow, listOf(block(1, 2, "09:30", "10:30")), tasks, zone).single().fromCalendar)
+    }
+
+    @Test
+    fun `the outline carries the calendar events and the tasks without a time`() {
+        val rows = TomorrowPlan.rows(tomorrow, listOf(block(1, 2, "13:00", "14:00")), tasks, zone)
+        val facts = DayFacts(fixed = listOf(FixedLine(LocalTime.of(10, 0), LocalTime.of(11, 0), "Tutorial")), unplaced = listOf("A", "B"))
+        assertEquals(DayOutline(1, LocalTime.of(13, 0), "ADA", fixedCount = 1, unplacedCount = 2), TomorrowPlan.outline(rows, emptySet(), facts))
+    }
+
+    @Test
+    fun `tasks with no block anywhere and due by tomorrow, or undated, are the ones without a time`() {
+        val all = listOf(
+            task(1, "Placed elsewhere", due = "2026-10-28"),
+            task(2, "Due tomorrow, no room", due = "2026-10-28"),
+            task(3, "Overdue", due = "2026-10-25"),
+            task(4, "Undated"),
+            task(5, "Due later", due = "2026-11-02"),
+            task(6, "Done", status = TaskStatus.DONE),
+            task(7, "Not yet available", from = instant("2026-11-01", "09:00")),
+        )
+        val unplaced = TomorrowPlan.unplaced(all, placedTaskIds = setOf(1L), date = tomorrow, zone = zone)
+        assertEquals(listOf("Overdue", "Due tomorrow, no room", "Undated"), unplaced.map { it.title })
+    }
+
     // The card on Today
 
     private fun pending(sentOn: String?, approvedFor: String?, now: Instant) =

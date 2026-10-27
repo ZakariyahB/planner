@@ -3,6 +3,7 @@ package app.planner.plan
 import app.planner.calendar.AllDayTask
 import app.planner.calendar.AllDayTasks
 import app.planner.calendar.AllDayTicks
+import app.planner.calendar.CalendarTasks
 import app.planner.calendar.CalendarEvent
 import app.planner.calendar.CalendarInfo
 import app.planner.calendar.CalendarRepository
@@ -37,6 +38,7 @@ import app.planner.scheduler.BlockOrigin
 import app.planner.scheduler.Commitments
 import app.planner.scheduler.ChangeSet
 import app.planner.scheduler.DayContext
+import app.planner.scheduler.FreeWindow
 import app.planner.scheduler.Op
 import app.planner.scheduler.PinConflict
 import app.planner.scheduler.PlanState
@@ -141,16 +143,18 @@ class PlanRepository @Inject constructor(
         }
 
     fun dayViews(from: LocalDate, to: LocalDate): Flow<List<DayView>> =
-        combine(blocks.observeBetween(from.toString(), to.toString()), calendar.cachedEvents, calSettings, allDayTicks.done) { rows, events, cs, done ->
+        combine(blocks.observeBetween(from.toString(), to.toString()), calendar.cachedEvents, calSettings, allDayTicks.done, tasks.tasks) { rows, events, cs, done, taskList ->
             val all = rows.map { it.toBlock() }
             val commitments = commitmentEvents(all)
+            // An all-day event that has become a task is ticked off as a task, with a time of its own.
+            val becameTasks = taskList.mapNotNull(CalendarTasks::allDayKey).toSet()
             generateSequence(from) { it.plusDays(1) }.takeWhile { it <= to }.map { date ->
                 val ctx = context(date, events, cs, existing = emptyList(), notBefore = null, commitments = commitments)
                 DayView(
                     date = date,
                     fixed = ctx.fixed.filter { it.start.atZone(clock.zone).toLocalDate() <= date && it.end.atZone(clock.zone).toLocalDate() >= date },
                     allDay = FixedEvents.allDayOn(events, cs.selected, cs.plannerId, date),
-                    allDayTasks = AllDayTasks.on(events, cs.selected, cs.plannerId, date, done),
+                    allDayTasks = AllDayTasks.on(events, cs.selected, cs.plannerId, date, done).filter { it.key !in becameTasks },
                     prayers = ctx.prayers,
                     blocks = all.filter { it.date == date && it.kind == BlockKind.TASK },
                     colours = cs.calendars.associate { it.id to it.colorHex },
@@ -178,6 +182,7 @@ class PlanRepository @Inject constructor(
         val now = clock.instant()
         val today = LocalDate.now(clock)
         val nowMin = LocalTime.now(clock).let { it.hour * 60 + it.minute }
+        materialiseCalendarTasks(today)
         val allTasks = tasks.snapshot()
         val byId = allTasks.associateBy { it.id }
 
@@ -229,6 +234,47 @@ class PlanRepository @Inject constructor(
         settings.savePlannedSleepEnd(sleepDao.since(sleepLookbackStart().toEpochMilli()).maxOfOrNull { it.endMillis })
         pushToGoogle()
         return summary
+    }
+
+    /**
+     * Turns the all-day calendar events of the next days into tasks, which the plan then places at a time. Returns
+     * how many tasks it added or let go, so a caller knows whether the plan needs rebuilding.
+     */
+    suspend fun syncCalendarTasks(): Int = replanLock.withLock { materialiseCalendarTasks(LocalDate.now(clock)) }
+
+    private suspend fun materialiseCalendarTasks(today: LocalDate): Int {
+        val cs = calSettingsNow()
+        val result = CalendarTasks.sync(
+            events = calendar.cachedEvents.first(),
+            selected = cs.selected,
+            plannerCalendarId = cs.plannerId,
+            from = today,
+            days = HORIZON_DAYS,
+            zone = clock.zone,
+            existing = tasks.snapshot(),
+            doneKeys = allDayTicks.done.first(),
+        )
+        tasks.addNew(result.create)
+        tasks.saveAll(result.drop)
+        return result.create.size + result.drop.size
+    }
+
+    /** The first block a task has from today on, if the plan placed it. */
+    suspend fun placementOf(taskId: Long): Block? =
+        blocks.fromDate(LocalDate.now(clock).toString()).map { it.toBlock() }.firstOrNull { it.taskId == taskId }
+
+    /** Where a new task could go on [date] right now: free stretches inside the work window, away from everything else. */
+    suspend fun freeWindows(date: LocalDate): List<FreeWindow> {
+        val today = LocalDate.now(clock)
+        if (date < today) return emptyList()
+        val state = stateFor(listOf(date))
+        val nowMin = LocalTime.now(clock).let { it.hour * 60 + it.minute }
+        val earliest = ((nowMin + 14) / 15 * 15).coerceAtMost(24 * 60 - 1)
+        val ctx = state.contexts.getValue(date).copy(
+            existing = state.blocks.filter { it.date == date && it.kind == BlockKind.TASK },
+            notBefore = if (date == today) LocalTime.of(earliest / 60, earliest % 60) else null,
+        )
+        return scheduler().freeWindows(ctx)
     }
 
     suspend fun approveLoadCut(): PlanSummary {

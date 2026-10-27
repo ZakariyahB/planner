@@ -12,8 +12,17 @@ import java.util.Locale
 
 data class NotificationText(val title: String, val body: String)
 
-/** What a day looks like in a notification: how many tasks and when the first one starts. */
-data class DayOutline(val taskCount: Int, val firstStart: LocalTime?, val firstTitle: String?)
+/**
+ * What a day looks like in a notification: how many tasks and when the first one starts, plus the calendar
+ * events at fixed times and the tasks that still have no time, so a day is never called empty while either exists.
+ */
+data class DayOutline(
+    val taskCount: Int,
+    val firstStart: LocalTime?,
+    val firstTitle: String?,
+    val fixedCount: Int = 0,
+    val unplacedCount: Int = 0,
+)
 
 /** A task that was not finished today and where it is planned now; a null [to] means it fits nowhere this week. */
 data class MovedTask(val title: String, val to: LocalDate?)
@@ -97,9 +106,7 @@ object NotificationTexts {
     }
 
     fun planReady(day: DayOutline, forecast: ForecastNote?): NotificationText {
-        val parts = mutableListOf(
-            if (day.taskCount == 0) "Nothing planned tomorrow." else plannedSentence(day, "tomorrow", withPlanned = false),
-        )
+        val parts = mutableListOf(plannedSentence(day, "tomorrow", withPlanned = false))
         if (forecast != null) parts += forecastLine(forecast)
         return NotificationText("Tomorrow's plan is ready", parts.joinToString(" "))
     }
@@ -131,13 +138,18 @@ object NotificationTexts {
     private fun tasks(n: Int) = if (n == 1) "1 task" else "$n tasks"
 
     private fun plannedSentence(day: DayOutline, whenText: String, withPlanned: Boolean = true): String {
-        if (day.taskCount == 0) return "Nothing planned $whenText."
-        val first = when {
-            day.firstTitle != null && day.firstStart != null -> ", first ${day.firstTitle} at ${clock.format(day.firstStart)}"
-            day.firstStart != null -> ", first at ${clock.format(day.firstStart)}"
-            else -> ""
+        val pieces = mutableListOf<String>()
+        if (day.taskCount > 0) {
+            val first = when {
+                day.firstTitle != null && day.firstStart != null -> ", first ${day.firstTitle} at ${clock.format(day.firstStart)}"
+                day.firstStart != null -> ", first at ${clock.format(day.firstStart)}"
+                else -> ""
+            }
+            pieces += "${tasks(day.taskCount)}${if (withPlanned) " planned" else ""}$first"
         }
-        return "${tasks(day.taskCount)}${if (withPlanned) " planned" else ""}$first."
+        if (day.fixedCount > 0) pieces += if (day.fixedCount == 1) "1 calendar event" else "${day.fixedCount} calendar events"
+        if (day.unplacedCount > 0) pieces += "${tasks(day.unplacedCount)} without a time yet"
+        return if (pieces.isEmpty()) "Nothing planned $whenText." else pieces.joinToString("; ") + "."
     }
 
     private fun moved(m: MovedTask, today: LocalDate): String = when (m.to) {

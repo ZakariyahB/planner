@@ -65,6 +65,16 @@ object ReadinessEngine {
         return Readiness(rounded, ReadinessBand.of(rounded), inputs)
     }
 
+    /** A settled score is worked out again when the night's sleep on record has changed by this much since. */
+    const val CORRECTION_MIN = 10
+
+    /**
+     * Whether the sleep now on record for the night differs enough from what the stored score used that the score
+     * should be redone: Health Connect data arrived late, or was read differently by a newer version of the app.
+     */
+    fun sleepCorrected(storedAsleepMin: Int, nowAsleepMin: Int?): Boolean =
+        nowAsleepMin != null && Math.abs(nowAsleepMin - storedAsleepMin) >= CORRECTION_MIN
+
     /** Minutes the lights-out time falls after the target; 0 if on time or early. */
     fun lightsOutDelayMin(lightsOut: LocalTime): Int {
         fun sinceEvening(t: LocalTime) = (t.hour * 60 + t.minute - DAY_ANCHOR_MIN + 24 * 60) % (24 * 60)

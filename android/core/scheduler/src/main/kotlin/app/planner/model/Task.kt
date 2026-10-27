@@ -16,7 +16,7 @@ data class Anchor(val prayer: Prayer, val offsetMin: Int = 0)
 @Serializable
 enum class Priority { LOW, NORMAL, HIGH }
 
-enum class TaskSource { MANUAL, CHAT, TEMPLATE, SUNDAY }
+enum class TaskSource { MANUAL, CHAT, TEMPLATE, SUNDAY, CALENDAR }
 
 enum class TaskStatus { OPEN, DONE, PARTIAL, DROPPED }
 

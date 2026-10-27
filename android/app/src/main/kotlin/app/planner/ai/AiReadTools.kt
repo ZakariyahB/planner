@@ -1,6 +1,7 @@
 package app.planner.ai
 
 import app.planner.calendar.AllDayTasks
+import app.planner.calendar.CalendarTasks
 import app.planner.calendar.EventTiming
 import app.planner.data.TaskRepository
 import app.planner.model.Task
@@ -8,6 +9,7 @@ import app.planner.model.TaskStatus
 import app.planner.plan.PlanRepository
 import app.planner.readiness.Readiness
 import app.planner.readiness.ReadinessState
+import app.planner.readiness.interruptionLabels
 import app.planner.readiness.phases
 import app.planner.scheduler.Commitments
 import app.planner.sleep.ReadinessRepository
@@ -39,7 +41,11 @@ class AiReadTools @Inject constructor(
 
     suspend fun day(date: LocalDate): JsonObject {
         val view = plan.dayViews(date, date).first().single()
-        val titles = tasks.snapshot().associate { it.id to it.title }
+        val allTasks = tasks.snapshot()
+        val titles = allTasks.associate { it.id to it.title }
+        val calendarTasks = allTasks.filter(CalendarTasks::isCalendarTask).mapNotNull { t -> CalendarTasks.allDayKey(t)?.let { it to t } }.toMap()
+        val free = plan.freeWindows(date)
+        val calendarTaskIds = calendarTasks.values.map { it.id }.toSet()
         return buildJsonObject {
             put("date", date.toString())
             put("weekday", date.dayOfWeek.name.lowercase())
@@ -52,6 +58,7 @@ class AiReadTools @Inject constructor(
                                 put("block_id", b.id)
                                 b.taskId?.let { put("task_id", it) }
                                 put("title", b.taskId?.let(titles::get) ?: "Block")
+                                if (b.taskId?.let { it in calendarTaskIds } == true) put("from_calendar", true)
                                 put("start", hhmm.format(b.start))
                                 put("end", hhmm.format(b.end))
                                 put("locked", b.locked)
@@ -87,7 +94,20 @@ class AiReadTools @Inject constructor(
                         add(
                             buildJsonObject {
                                 put("title", e.title)
-                                put("done", view.allDayTasks.any { it.key == AllDayTasks.key(e, date) && it.done })
+                                val key = AllDayTasks.key(e, date)
+                                val asTask = calendarTasks[key]
+                                if (asTask != null) {
+                                    // The planner turned this item into a task with a time of its own.
+                                    put("task_id", asTask.id)
+                                    put("done", asTask.status == TaskStatus.DONE)
+                                    put("estimate_minutes", asTask.estMin)
+                                    view.blocks.firstOrNull { it.taskId == asTask.id }?.let { b ->
+                                        put("planned_start", hhmm.format(b.start))
+                                        put("planned_end", hhmm.format(b.end))
+                                    }
+                                } else {
+                                    put("done", view.allDayTasks.any { it.key == key && it.done })
+                                }
                                 (e.timing as? EventTiming.AllDay)?.let { t ->
                                     put("first_day", t.start.toString())
                                     put("last_day", t.endExclusive.minusDays(1).toString())
@@ -95,6 +115,12 @@ class AiReadTools @Inject constructor(
                             },
                         )
                     }
+                },
+            )
+            put(
+                "free",
+                buildJsonArray {
+                    free.forEach { w -> add(buildJsonObject { put("start", hhmm.format(w.start)); put("end", hhmm.format(w.end)) }) }
                 },
             )
             put("prayers", buildJsonObject { view.prayers.forEach { (prayer, time) -> put(prayer.name.lowercase(), hhmm.format(time)) } })
@@ -139,6 +165,7 @@ class AiReadTools @Inject constructor(
                                 t.startAt?.let { put("start_time", hhmm.format(it)) }
                                 put("priority", t.priority.name.lowercase())
                                 put("status", t.status.name.lowercase())
+                                if (CalendarTasks.isCalendarTask(t)) put("from_calendar", true)
                             },
                         )
                     }
@@ -158,9 +185,12 @@ class AiReadTools @Inject constructor(
                             buildJsonObject {
                                 put("morning_of", n.date.toString())
                                 put("asleep_minutes", n.asleepMin)
+                                put("in_bed_minutes", n.inBedMin)
+                                put("awake_minutes", n.awakeMin)
                                 put("lights_out", hhmm.format(n.lightsOut.atZone(clock.zone)))
                                 put("woke", hhmm.format(n.lastEnd.atZone(clock.zone)))
                                 put("periods", JsonArray(n.phases(clock.zone).map { JsonPrimitive(it.label()) }))
+                                put("interruptions", JsonArray(n.interruptionLabels(clock.zone).map { JsonPrimitive(it) }))
                             },
                         )
                     }

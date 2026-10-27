@@ -3,6 +3,7 @@ package app.planner.ui
 import app.planner.data.DayRulesRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.routines.DayFacts
 import app.planner.routines.ForecastNote
 import app.planner.routines.NotificationTexts
 import app.planner.routines.PlanRow
@@ -23,6 +24,8 @@ import kotlinx.coroutines.launch
 data class TomorrowPlanUi(
     val date: LocalDate,
     val rows: List<PlanRow> = emptyList(),
+    /** Calendar events at fixed times and tasks still waiting for a time. */
+    val facts: DayFacts = DayFacts(),
     /** Switched off on the sheet; deferred when he approves. */
     val excluded: Set<Long> = emptySet(),
     val note: String? = null,
@@ -46,6 +49,7 @@ class TomorrowPlanViewModel @Inject constructor(
         viewModelScope.launch {
             val date = planDate()
             val rows = plans.rowsOn(date)
+            val facts = plans.factsOn(date)
             val forecast = try {
                 readiness.evaluate().forecast?.let {
                     NotificationTexts.forecastLine(ForecastNote(dayRules.current().lightsOut, it.onTime.score, it.usualLightsOut, it.usual?.score))
@@ -55,7 +59,7 @@ class TomorrowPlanViewModel @Inject constructor(
             } catch (e: Exception) {
                 null
             }
-            _ui.value = TomorrowPlanUi(date, rows, note = routines.planNote(date), forecast = forecast, loaded = true)
+            _ui.value = TomorrowPlanUi(date, rows, facts, note = routines.planNote(date), forecast = forecast, loaded = true)
         }
     }
 
@@ -75,7 +79,12 @@ class TomorrowPlanViewModel @Inject constructor(
     fun askDraft(): String {
         val s = _ui.value
         val kept = s.rows.filter { it.taskId !in s.excluded }
-        val plan = if (kept.isEmpty()) "nothing planned" else kept.joinToString("; ") { "${timeFormat.format(it.start)} ${it.title}" }
+        val parts = buildList {
+            if (kept.isNotEmpty()) add(kept.joinToString("; ") { "${timeFormat.format(it.start)} ${it.title}" })
+            if (s.facts.fixed.isNotEmpty()) add("calendar: " + s.facts.fixed.joinToString("; ") { "${timeFormat.format(it.start)} ${it.title}" })
+            if (s.facts.unplaced.isNotEmpty()) add("without a time: " + s.facts.unplaced.joinToString("; "))
+        }
+        val plan = if (parts.isEmpty()) "nothing planned" else parts.joinToString(" | ")
         return "About ${dateFormat.format(s.date)}'s plan ($plan): "
     }
 
