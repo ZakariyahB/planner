@@ -8,11 +8,11 @@ Everything you enter stays on your phone. The only thing that leaves it is what 
 
 **Morning.** When you unlock your phone after waking, you get the morning brief and your readiness score for the day. If your first sleep ended near Fajr, you may first get a "back to bed" notice saying how much sleep you have had and when to set the alarm.
 
-**Today tab.** The date, a compact setup prompt while needed, your readiness summary, the next-task card, then the day's task list. All-day calendar events come first in the list as tasks to tick off: they get no time block, ticking one doesn't change your calendar, and a multi-day event is ticked off for each day separately. The list follows actual scheduled dates, including work whose deadline is later. Tasks without a placement appear as **Any time**. Tick a task when it is done, tap it to edit, or tap **Log** to record progress. Long press remains a shortcut. Tap readiness for sleep details, refresh or manual entry. Use **See plan** for the calendar; Today stays a task list.
+**Today tab.** The date, a compact setup prompt while needed, your readiness summary, the next-task card, then the day's task list. All-day calendar events are tasks too: each gets a time in your day like any other task (see **All-day calendar items** below), and you tick it off like any other. The list follows actual scheduled dates, including work whose deadline is later. Tasks without a placement appear as **Any time**. Tick a task when it is done, tap it to edit, or tap **Log** to record progress. Long press remains a shortcut. Tap readiness for sleep details, refresh or manual entry. Use **See plan** for the calendar; Today stays a task list.
 
 **During the day.** If something overruns, open **AI chat** above the bottom navigation ("Halaqa ran over by an hour") or drag the blocks yourself in **Plan**. Use **Adjust** in Plan to fit flexible work again. Closing chat returns to the same screen and scroll position.
 
-**Evening.** At 21:00 (22:00 on a packed day) you get "Work stops": what got done and what moved. At 21:30 you get your social-time summary. At 23:30 you get **tomorrow's plan** to approve: switch off anything you don't want, then **Approve and sleep**, or **Ask Claude** to change it. At 23:45, thirty minutes before lights-out, you get a warning.
+**Evening.** At 21:00 (22:00 on a packed day) you get "Work stops": what got done and what moved. At 21:30 you get your social-time summary. At 23:30 you get **tomorrow's plan** to approve, counting everything on the day: timed tasks, all-day calendar items, calendar events at fixed times, and tasks still waiting for a time. Switch off anything you don't want, then **Approve and sleep**, or **Ask Claude** to change it. At 23:45, thirty minutes before lights-out, you get a warning.
 
 All of these times follow your day rules (Settings, Day rules). The numbers above are the defaults.
 
@@ -36,6 +36,7 @@ The score sets the load:
 Three things to know:
 
 - **Provisional, then final.** After your first sleep block ends, you see "Readiness so far" and back-to-bed advice. The final score appears once your last sleep has ended and you have unlocked the phone after 07:00 (or at 10:00 at the latest). It is fixed for the day: if things overrun, the plan changes, the score does not.
+- **Sleep details.** Tap readiness on Today to see last night as you slept it: when you went to bed, when you woke, each time you were awake in between (the interruptions), and the total asleep, which is the time in bed minus the time awake. The last seven nights are listed below it, and the assistant reads the same figures. **Refresh** reads Health Connect again; if that changes last night's total by 10 minutes or more, today's score is worked out again from the corrected sleep.
 - **Waiting for sleep data.** Fitbit can take a while to reach Health Connect. Until it does, Planner says it is waiting and does not score a half-recorded night. If a night never arrives, tap **Enter sleep manually** and give your lights-out and wake times.
 - **Forecast.** At night, tap readiness on Today to see the score you would get tomorrow if lights-out is 00:15, and the one at your usual time.
 
@@ -43,7 +44,7 @@ Three things to know:
 
 Choose **Day**, **3 days** or **Week** at the top; **Adjust** beside them replans. The arrows move by that much; tap the month to choose a date or return to **Today**. In day view, the week strip selects a day directly. A blue line marks now.
 
-You see fixed commitments on neutral surfaces, prayer times as dashed lines, grey shading where you were asleep, and flexible task blocks in pale blue. Completed task blocks are neutral. Overlapping commitments share columns instead of covering each other. **All day** lists every all-day calendar event above the hourly grid, with a box to tick it off; **Any time** lists relevant tasks without a scheduled block. All-day events spanning dates appear on each covered date. These items never receive a fabricated midnight time. Tap an event or task for details. Three-day and week views scroll sideways together with their headers when more space is needed.
+You see fixed commitments on neutral surfaces, prayer times as dashed lines, grey shading where you were asleep, and flexible task blocks in pale blue. Completed task blocks are neutral. Overlapping commitments share columns instead of covering each other. **All day** lists every all-day calendar event above the hourly grid for context, while the task it became sits in the grid at the time the planner chose; **Any time** lists relevant tasks without a scheduled block. All-day events spanning dates appear on each covered date. Tap an event or task for details. Three-day and week views scroll sideways together with their headers when more space is needed.
 
 - **Move a block:** drag it. It snaps to 15 minutes.
 - **Change its length:** drag the small handle at its bottom edge.
@@ -56,6 +57,22 @@ Every move is checked against your rules first. If it isn't allowed (for example
 **Planner calendar.** Planned blocks are copied to a Google calendar called **Planner**. If you change a time there, the app reads it back into the plan. Your other calendars are only read, never changed.
 
 If a stretch of days has nothing planned, the tab says so and offers **Replan**.
+
+## All-day calendar items
+
+An all-day event on one of your selected calendars becomes a task for each day it covers, for the next seven days, and the planner puts it in a free stretch of the day like any other task. Unfinished ones are kept for two days and then let go; one you drop, or whose event you delete, doesn't come back.
+
+Say how long it takes, and when, in brackets in the title:
+
+| Title | What you get |
+|---|---|
+| `PintOS (3h)` | a 3-hour task called PintOS |
+| `OS worksheet (90m)` | 90 minutes |
+| `Lecture - SDE (1h, from 14:00)` | one hour, placed exactly at 14:00 |
+| `Workshop (10:00-11:30)` | 90 minutes at 10:00 |
+| `Eid` | one hour, placed wherever there is room |
+
+Brackets that say anything else, such as `(optional)`, stay in the title. Edit the task to change its length or time; the calendar event is never changed. Ask the assistant to "fit my all-day items into this week" and it reads the free time of each day and sets a time for each one.
 
 ## Tasks
 
@@ -91,6 +108,7 @@ Things you can say:
 - "Add PintOS 3 hours, due Friday."
 - "Interview Thursday 14:00 to 15:00." (Becomes a locked commitment, copied to the Planner calendar.)
 - "Plan my evening."
+- "Fit my all-day items into the week." (It reads each day's free time and sets a time for each item; moving one to another day asks you first.)
 - "I did 40 minutes of the OS worksheet." (Logs progress.)
 - "Why am I so tired lately?" (It looks at your actual sleep and workload.)
 - "Undo that."
@@ -113,7 +131,7 @@ It coaches on sleep and on stress or workload only. It is not medical advice: fo
 
 ## Social-media time
 
-Planner counts how long your social apps are open and nudges you. It never blocks anything.
+Planner counts how long your social apps are open and nudges you. It never blocks anything. The minutes come from Android's own usage records, the same ones Samsung's Digital Wellbeing is built on, so Planner does not time anything itself; time between an app's screens is not split, and the screen going off ends a session.
 
 1. Turn on **usage access** for Planner (Get set up on Today walks you to the right screen). Planner then also reads the past week from your phone's own usage history, so Reflect isn't empty at first.
 2. In **Settings, Social media**, choose which apps count (Instagram, TikTok, Snapchat, X, Reddit, Facebook and Threads to begin with; you can add others) and set the daily budget: 2 hours on weekdays and 3 on weekends to begin with.

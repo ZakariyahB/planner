@@ -17,10 +17,10 @@ class PlanNoteWriter @Inject constructor(
     private val assistant: AiAssistant,
     private val routines: RoutineSettings,
 ) {
-    suspend fun write(date: LocalDate, rows: List<PlanRow>, forecast: ForecastNote?): String? {
+    suspend fun write(date: LocalDate, rows: List<PlanRow>, forecast: ForecastNote?, facts: DayFacts = DayFacts()): String? {
         val reply = try {
             withTimeoutOrNull(TIMEOUT_MS) {
-                assistant.ask(emptyList(), PlanNotePrompt.build(date, rows, forecast), Purpose.SCHEDULED, readOnly = true).reply
+                assistant.ask(emptyList(), PlanNotePrompt.build(date, rows, forecast, facts), Purpose.SCHEDULED, readOnly = true).reply
             }
         } catch (e: CancellationException) {
             throw e

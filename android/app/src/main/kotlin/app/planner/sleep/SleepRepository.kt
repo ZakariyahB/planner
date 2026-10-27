@@ -13,6 +13,9 @@ import app.planner.data.toEntity
 import app.planner.data.toSession
 import app.planner.errors.PlainErrors
 import app.planner.readiness.SleepSession
+import app.planner.readiness.SleepStage
+import app.planner.readiness.StageKind
+import app.planner.readiness.sleepSessionFromStages
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import java.time.Clock
@@ -78,7 +81,11 @@ class SleepRepository @Inject constructor(
         }
     }
 
-    /** Replaces the Health Connect rows of the last three weeks with what Health Connect has now. */
+    /**
+     * Replaces the Health Connect rows of the last three weeks with what Health Connect has now: when he slept,
+     * when he woke, the times he was awake in between, and the total slept. The last seven nights are what the
+     * app and the assistant show.
+     */
     suspend fun syncFromHealthConnect(): SleepSyncResult {
         val status = healthStatus()
         if (status != HealthStatus.Ready) return SleepSyncResult.NotReady(status)
@@ -115,20 +122,20 @@ class SleepRepository @Inject constructor(
 
     private fun lookbackStart(): Instant = clock.instant().minus(Duration.ofDays(LOOKBACK_DAYS))
 
-    private fun toSession(r: SleepSessionRecord): SleepSession {
-        val total = Duration.between(r.startTime, r.endTime).toMinutes().toInt()
-        if (r.stages.isEmpty()) return SleepSession(r.startTime, r.endTime, total)
-        fun minutes(vararg types: Int) = r.stages.filter { it.stage in types }
-            .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }.toInt()
-        val deep = minutes(SleepSessionRecord.STAGE_TYPE_DEEP)
-        val rem = minutes(SleepSessionRecord.STAGE_TYPE_REM)
-        val asleep = minutes(
-            SleepSessionRecord.STAGE_TYPE_SLEEPING,
-            SleepSessionRecord.STAGE_TYPE_LIGHT,
-            SleepSessionRecord.STAGE_TYPE_DEEP,
-            SleepSessionRecord.STAGE_TYPE_REM,
-        )
-        return SleepSession(r.startTime, r.endTime, asleep, deep, rem)
+    /** Time in bed minus the stretches he was awake; see [sleepSessionFromStages] for why. */
+    private fun toSession(r: SleepSessionRecord): SleepSession =
+        sleepSessionFromStages(r.startTime, r.endTime, r.stages.map { SleepStage(stageKind(it.stage), it.startTime, it.endTime) })
+
+    private fun stageKind(stage: Int): StageKind = when (stage) {
+        SleepSessionRecord.STAGE_TYPE_AWAKE,
+        SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED,
+        SleepSessionRecord.STAGE_TYPE_OUT_OF_BED,
+        -> StageKind.AWAKE
+        SleepSessionRecord.STAGE_TYPE_LIGHT -> StageKind.LIGHT
+        SleepSessionRecord.STAGE_TYPE_DEEP -> StageKind.DEEP
+        SleepSessionRecord.STAGE_TYPE_REM -> StageKind.REM
+        SleepSessionRecord.STAGE_TYPE_SLEEPING -> StageKind.ASLEEP
+        else -> StageKind.UNKNOWN
     }
 
     companion object {

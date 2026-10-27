@@ -33,6 +33,8 @@ data class ReadinessView(
     val forecast: Forecast?,
     /** Last night as asleep and awake periods, once any sleep is on record. */
     val night: SleepNight?,
+    /** The last seven nights on record, oldest first: when he slept and woke, the interruptions and the total. */
+    val recentNights: List<SleepNight> = emptyList(),
 )
 
 @Singleton
@@ -45,7 +47,11 @@ class ReadinessRepository @Inject constructor(
     private val clock: Clock,
 ) {
 
-    /** A stored final score is returned as is; anything else is computed from the sleep on record. */
+    /**
+     * A stored final score is returned as is, unless the sleep on record for the night has since been corrected
+     * by [ReadinessEngine.CORRECTION_MIN] minutes or more (Health Connect data arrived late or was read differently): then the
+     * score is worked out again from what is on record. Anything not yet final is computed.
+     */
     suspend fun evaluate(awakeConfirmed: Boolean = false): ReadinessView {
         val now = clock.instant()
         val today = LocalDate.now(clock)
@@ -53,17 +59,24 @@ class ReadinessRepository @Inject constructor(
         val nights = nights()
         val doneRatio = doneRatio(today.minusDays(1))
 
-        val stored = readinessDao.get(today.toString())
-        val (state, newlyFinal) = if (stored != null) {
-            ReadinessState.Final(stored.toReadiness()) to false
+        val stored = readinessDao.get(today.toString())?.toReadiness()
+        val tonight = nights.firstOrNull { it.date == today }
+        val corrected = stored != null && ReadinessEngine.sleepCorrected(stored.inputs.asleepMin, tonight?.asleepMin)
+        val (state, newlyFinal) = if (stored != null && !corrected) {
+            ReadinessState.Final(stored) to false
         } else {
-            val computed = ReadinessEngine.evaluate(now, clock.zone, rules.wake, nights, doneRatio, awakeConfirmed)
-            if (computed is ReadinessState.Final) {
-                readinessDao.put(computed.readiness.toEntity(today.toString(), now.toEpochMilli()))
+            // A stored score means the night was already over, so a correction is rescored as a settled night.
+            val computed = ReadinessEngine.evaluate(now, clock.zone, rules.wake, nights, doneRatio, awakeConfirmed || stored != null)
+            when {
+                computed is ReadinessState.Final -> {
+                    readinessDao.put(computed.readiness.toEntity(today.toString(), now.toEpochMilli()))
+                    computed to true
+                }
+                stored != null -> ReadinessState.Final(stored) to false
+                else -> computed to false
             }
-            computed to (computed is ReadinessState.Final)
         }
-        return ReadinessView(state, newlyFinal, forecast(nights, today, rules, doneRatio = doneRatio(today)), nights.firstOrNull { it.date == today })
+        return ReadinessView(state, newlyFinal, forecast(nights, today, rules, doneRatio = doneRatio(today)), nights.firstOrNull { it.date == today }, nights.takeLast(RECENT_NIGHTS))
     }
 
     /** The last [count] nights on record, oldest first. */
@@ -101,5 +114,6 @@ class ReadinessRepository @Inject constructor(
 
     private companion object {
         val FORECAST_FROM: LocalTime = LocalTime.of(23, 30)
+        const val RECENT_NIGHTS = 7
     }
 }

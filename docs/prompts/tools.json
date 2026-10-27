@@ -1,7 +1,7 @@
 [
   {
     "name": "get_day",
-    "description": "Read one day of the plan: the planned task blocks (with ids you can move), fixed commitments from the calendar, all-day calendar items with no start time (deadlines, exams, trips, days off; each is also a task he ticks off, with done true once ticked; they hold no time slot but matter for how full the day is), prayer times, and the times he was asleep. Call this before suggesting any change to a day.",
+    "description": "Read one day of the plan: the planned task blocks (with ids you can move), fixed commitments from the calendar, all-day calendar items (each is also a task with a task_id, an estimate and, once the planner has found room, a planned_start and planned_end; from_calendar marks their blocks), the free windows still open in the work day (where a task could go), prayer times, and the times he was asleep. Call this before suggesting any change to a day.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -11,7 +11,7 @@
   },
   {
     "name": "get_tasks",
-    "description": "List tasks with their ids, estimates, due dates, chosen start times, priority and status. Use it to find a task by name or to see what is outstanding.",
+    "description": "List tasks with their ids, estimates, due dates, chosen start times, priority and status. All-day calendar items appear here too, marked from_calendar. Use it to find a task by name or to see what is outstanding.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -22,7 +22,7 @@
   },
   {
     "name": "get_sleep",
-    "description": "Summaries of recent nights: when he went to bed, each sleep block, total asleep, and when he woke. Summaries only, never raw sleep stages.",
+    "description": "Summaries of recent nights (the last 7 by default): when he went to bed, each sleep block, when he woke, the times he was awake in between (interruptions), time in bed and the total asleep. Summaries only, never raw sleep stages.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -117,6 +117,21 @@
         "end": { "type": "string", "description": "HH:mm, after start." }
       },
       "required": ["title", "date", "start", "end"]
+    }
+  },
+  {
+    "name": "update_task",
+    "description": "Change a task's length, its chosen start time on its own day, priority or title, then plan again. Use it to give an all-day calendar item a time (read get_day first and pick inside a free window), to resize it, or to clear a chosen time with start_time \"none\". It cannot move a task to another day: propose that with propose_changes. If the time clashes with something, the result says why and the task is planned at the next free time.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "task_id": { "type": "integer" },
+        "estimate_minutes": { "type": "integer", "minimum": 5, "maximum": 720 },
+        "start_time": { "type": "string", "description": "HH:mm, or \"none\" to let the planner choose again. Only inside a free window of the task's own day." },
+        "priority": { "type": "string", "enum": ["low", "normal", "high"] },
+        "title": { "type": "string" }
+      },
+      "required": ["task_id"]
     }
   },
   {

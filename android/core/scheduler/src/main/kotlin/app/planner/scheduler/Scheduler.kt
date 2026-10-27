@@ -45,6 +45,11 @@ data class WeekPlan(
 
 data class PinConflict(val task: Task, val reason: String)
 
+/** A stretch of a day where a new block could start and end without touching anything else. */
+data class FreeWindow(val start: LocalTime, val end: LocalTime) {
+    val minutes: Int get() = end.toMinuteOfDay() - start.toMinuteOfDay()
+}
+
 internal class DayLayout(ctx: DayContext, private val rules: DayRules, honourNotBefore: Boolean) {
     val fixedSlots: List<Slot> = ctx.fixed.mapNotNull { e -> slotOn(ctx, e.start, e.end) }
     val sleepSlots: List<Slot> = ctx.asleep.mapNotNull { a -> slotOn(ctx, a.start, a.end) }
@@ -85,6 +90,17 @@ class Scheduler(val rules: DayRules = DayRules()) {
         .thenByDescending { it.priority }
         .thenByDescending { it.estMin }
         .thenBy { it.id }
+
+    /**
+     * The open stretches of [ctx]'s day, at least [minMin] long, inside the work window and clear of fixed events,
+     * prayers, sleep and the blocks in [DayContext.existing] (with their buffers). Nothing here is placed.
+     */
+    fun freeWindows(ctx: DayContext, minMin: Int = 15): List<FreeWindow> {
+        val layout = DayLayout(ctx, rules, honourNotBefore = true)
+        return subtract(Slot(layout.windowStart, layout.windowEnd), layout.busy(ctx.existing))
+            .filter { it.length >= minMin }
+            .map { FreeWindow(it.start.toLocalTime(), it.end.toLocalTime()) }
+    }
 
     /**
      * Places [tasks] on one day. Tasks are never split. With [hardestFirst] the longest task claims

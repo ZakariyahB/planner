@@ -113,6 +113,7 @@ class RoutineRunner @Inject constructor(
         guard("sleep sync") { sleep.syncFromHealthConnect() }
         guard("replan on new sleep") { plan.replanIfSleepChanged() }
         guard("provisional readiness") { provisional() }
+        guard("calendar items") { if (plan.syncCalendarTasks() > 0) plan.replan() }
         guard("morning brief fallback") { morning(awakeConfirmed = false) }
         guard("monday catch-up") { mondayCatchUp() }
         guard("alarms") { scheduler.rescheduleAll() }
@@ -142,10 +143,13 @@ class RoutineRunner @Inject constructor(
     private suspend fun planReady() {
         val today = LocalDate.now(clock)
         val date = today.plusDays(1)
+        // All-day calendar items become tasks with a time before the day is described.
+        guard("calendar items") { if (plan.syncCalendarTasks() > 0) plan.replan() }
         val rows = planRows.rowsOn(date)
-        val outline = TomorrowPlan.outline(rows, emptySet())
+        val facts = planRows.factsOn(date)
+        val outline = TomorrowPlan.outline(rows, emptySet(), facts)
         val forecast = forecastNote()
-        val note = planNotes.write(date, rows, forecast) // null if the AI is unavailable; the text stands on its own
+        val note = planNotes.write(date, rows, forecast, facts) // null if the AI is unavailable; the text stands on its own
         notifier.post(Routine.PLAN_READY, NotificationTexts.planReady(outline, forecast), LaunchTarget.TOMORROW_PLAN, extraLine = note)
         routines.markSent(Routine.PLAN_READY, today)
     }
@@ -198,10 +202,17 @@ class RoutineRunner @Inject constructor(
 
         // The day's load is now fixed: plan again. A lighter band also needs the proposed cut for the notice.
         var summary: PlanSummary? = null
-        if (view.newlyFinal || final.readiness.band != ReadinessBand.GREEN) summary = plan.replan()
+        val calendarChanged = try {
+            plan.syncCalendarTasks() > 0 // all-day items of today get a time too
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+        if (view.newlyFinal || calendarChanged || final.readiness.band != ReadinessBand.GREEN) summary = plan.replan()
 
         if (routines.enabled(Routine.MORNING_BRIEF)) {
-            val outline = TomorrowPlan.outline(planRows.rowsOn(today), emptySet())
+            val outline = TomorrowPlan.outline(planRows.rowsOn(today), emptySet(), planRows.factsOn(today))
             val cut = summary?.loadCut?.size ?: 0
             notifier.post(
                 Routine.MORNING_BRIEF,

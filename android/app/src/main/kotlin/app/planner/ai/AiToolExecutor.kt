@@ -7,6 +7,7 @@ import app.planner.model.Priority
 import app.planner.model.ProgressOutcome
 import app.planner.model.Task
 import app.planner.model.TaskProgress
+import app.planner.model.TaskStatus
 import app.planner.model.TaskSource
 import app.planner.model.onDates
 import app.planner.plan.MoveResult
@@ -48,6 +49,7 @@ class AiToolExecutor @Inject constructor(
             AiToolNames.APPLY_CHANGES -> changes.apply(input.text("proposal_id") ?: throw IllegalArgumentException("proposal_id is required"))
             AiToolNames.ADD_TASK -> addTask(input)
             AiToolNames.ADD_COMMITMENT -> addCommitment(input)
+            AiToolNames.UPDATE_TASK -> updateTask(input)
             AiToolNames.LOG_PROGRESS -> logProgress(input)
             AiToolNames.UNDO -> undo(input)
             else -> fail("Unknown tool \"$name\"")
@@ -91,6 +93,53 @@ class AiToolExecutor @Inject constructor(
                 ok(buildJsonObject { put("change_id", result.changeId) })
             }
         }
+    }
+
+    /**
+     * Changes a task's length, chosen start time (on its own day), priority or title, then plans again. This is how
+     * an all-day calendar item gets the time the assistant picked for it. Moving a task to another day is a
+     * proposal instead, so the user approves it.
+     */
+    private suspend fun updateTask(input: JsonObject): ToolOutcome {
+        val id = input.int("task_id")?.toLong() ?: throw IllegalArgumentException("task_id is required")
+        val task = tasks.snapshot().firstOrNull { it.id == id } ?: throw IllegalArgumentException("No task with id $id")
+        require(task.status == TaskStatus.OPEN || task.status == TaskStatus.PARTIAL) { "That task is already ${task.status.name.lowercase()}" }
+        require(plan.placementOf(id)?.locked != true) { "That task's block is locked: ask the user to unlock it first" }
+
+        var updated = task
+        input.int("estimate_minutes")?.let { minutes ->
+            require(minutes in 5..Task.MAX_EST_MIN) { "estimate_minutes must be 5 to ${Task.MAX_EST_MIN}" }
+            updated = updated.copy(estMin = minutes)
+        }
+        input.text("title")?.let { updated = updated.copy(title = it) }
+        input.text("priority")?.let { p ->
+            val priority = Priority.entries.firstOrNull { it.name.equals(p, ignoreCase = true) } ?: throw IllegalArgumentException("priority must be low, normal or high")
+            updated = updated.copy(priority = priority)
+        }
+        input.text("start_time")?.let { t ->
+            updated = updated.copy(startAt = if (t.equals("none", ignoreCase = true) || t.equals("any", ignoreCase = true)) null else LocalTime.parse(t))
+        }
+        require(updated != task) { "Nothing to change: give estimate_minutes, start_time, priority or title" }
+
+        tasks.save(updated)
+        plan.forgetBlocks(id) // placed afresh below, at the chosen time if it can have it
+        val summary = plan.replan()
+        val conflict = summary.pinConflicts.firstOrNull { it.task.id == id }
+        val placed = plan.placementOf(id)
+        return ok(
+            buildJsonObject {
+                put("task", updated.title)
+                put("estimate_minutes", updated.estMin)
+                if (placed != null) {
+                    put("date", placed.date.toString())
+                    put("start", placed.start.toString())
+                    put("end", placed.end.toString())
+                } else {
+                    put("status", "not placed: no room before it is due")
+                }
+                conflict?.let { put("time_conflict", "Could not use ${updated.startAt}: ${it.reason}. It was planned at the next free time instead.") }
+            },
+        )
     }
 
     private suspend fun logProgress(input: JsonObject): ToolOutcome {

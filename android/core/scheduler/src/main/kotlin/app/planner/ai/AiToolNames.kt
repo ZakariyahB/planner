@@ -11,12 +11,13 @@ object AiToolNames {
     const val APPLY_CHANGES = "apply_changes"
     const val ADD_TASK = "add_task"
     const val ADD_COMMITMENT = "add_commitment"
+    const val UPDATE_TASK = "update_task"
     const val LOG_PROGRESS = "log_progress"
     const val UNDO = "undo"
 
     val all = listOf(
         GET_DAY, GET_TASKS, GET_SLEEP, GET_READINESS, GET_SOCIAL_TIME,
-        PROPOSE_CHANGES, APPLY_CHANGES, ADD_TASK, ADD_COMMITMENT, LOG_PROGRESS, UNDO,
+        PROPOSE_CHANGES, APPLY_CHANGES, ADD_TASK, ADD_COMMITMENT, UPDATE_TASK, LOG_PROGRESS, UNDO,
     )
 
     /** Tools that only read; the app shows them as quiet activity chips. */

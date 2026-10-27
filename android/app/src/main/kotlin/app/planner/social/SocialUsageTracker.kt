@@ -20,7 +20,7 @@ import kotlinx.serialization.json.Json
 /** Minutes on the selected social apps for one day, in total and per package. */
 data class TrackedDay(val date: LocalDate, val minutes: Int, val perApp: Map<String, Int>)
 
-/** Reads Android's usage events and keeps the day's row in `social_usage` up to date. */
+/** Reads Android's own usage events (what Samsung and Google Digital Wellbeing are built on) and keeps the day's row in `social_usage` up to date. */
 @Singleton
 class SocialUsageTracker @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -74,13 +74,14 @@ class SocialUsageTracker @Inject constructor(
         while (raw.hasNextEvent()) {
             raw.getNextEvent(event)
             val pkg = event.packageName
-            if (pkg !in apps) continue
             val type = when (event.eventType) {
                 FOREGROUND -> UsageEventType.FOREGROUND
                 BACKGROUND -> UsageEventType.BACKGROUND
+                UsageEvents.Event.SCREEN_NON_INTERACTIVE, UsageEvents.Event.DEVICE_SHUTDOWN -> UsageEventType.SCREEN_OFF
                 else -> continue
             }
-            found += UsageEvent(pkg, type, event.timeStamp)
+            if (type != UsageEventType.SCREEN_OFF && pkg !in apps) continue
+            found += UsageEvent(pkg, type, event.timeStamp, event.className.orEmpty())
         }
         return found
     }
