@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Week, ink direction</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#D4FF3A}a:hover{color:#EFFFB0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0E0E10; font-family: 'Space Grotesk', system-ui, sans-serif; color: #EDEDED; display: flex; flex-direction: column; position: relative; overflow: hidden">
+  <header style="padding: 28px 20px 14px; display: flex; flex-direction: column; gap: 6px">
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A1A1AA; letter-spacing: 0.04em">W45 · 02 ─ 08 NOV</span>
+    <h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em">Week load</h1>
+  </header>
+
+  <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: grid; grid-template-columns: 48px minmax(0, 1fr) 52px; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A1A1AA; padding-bottom: 4px">
+      <span></span><span style="display: flex; justify-content: space-between"><span>09:30</span><span>14</span><span>18</span><span>22</span></span><span style="text-align: right">END</span>
+    </div>
+    <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+      <div style="display: grid; grid-template-columns: 48px minmax(0, 1fr) 52px; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid #222226">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: {{d.labelColor}}">{{d.label}}</span>
+        <span style="display: grid; grid-template-columns: repeat(25, minmax(0, 1fr)); gap: 2px">
+          <sc-for list="{{d.cells}}" as="c" hint-placeholder-count="25">
+            <span style="height: 22px; border-radius: 2px; background: {{c}}"></span>
+          </sc-for>
+        </span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; text-align: right; color: {{d.endColor}}">{{d.end}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin: 14px 16px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A1A1AA">
+    <span style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 2px; background: #D4FF3A"></span>T0 NORMAL</span>
+    <span style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 2px; background: #8FB31F"></span>T1 REST</span>
+    <span style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 2px; background: #FFB84D"></span>T2 EXTENDED</span>
+    <span style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 2px; background: #6B6B73"></span>FIXED EVENT</span>
+  </div>
+
+  <div style="margin: 18px 16px 0; border: 1px solid #2A2A2F; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A1A1AA; line-height: 1.5">
+    <span style="color: #EDEDED">29h00 work · 0 overflow · catch-up SUN 2h</span>
+    <span>! WED Halaqa, FRI Jumu'ah prep assumed (not on calendar)</span>
+    <span>~ SAT, SUN prayer times interpolated</span>
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 88px">
+    <button style="width: 100%; height: 52px; border-radius: 4px; border: 1px solid #D4FF3A; background: transparent; color: #D4FF3A; font: 700 14px 'Space Grotesk', sans-serif; letter-spacing: 0.04em">COPY TEMPLATE → W46</button>
+  </div>
+
+  <nav aria-label="Main" style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #0E0E10; border-top: 1px solid #222226; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em">
+    <a href="B-Today.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #A1A1AA">TODAY</a>
+    <a href="B-Week.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #D4FF3A; border-top: 2px solid #D4FF3A">WEEK</a>
+    <a href="B-Backlog.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #A1A1AA">BACKLOG</a>
+    <a href="B-Today.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #A1A1AA">ASK</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+  const t = (s) => { const [h, m] = s.split(':').map(Number); return h + m / 60; };
+  const week = [
+    { label: 'MON', maghrib: '16:35', end: '19:15', work: [['09:30','11:30'],['11:30','12:45'],['14:00','15:15'],['17:00','19:15']], fixed: [] },
+    { label: 'TUE', maghrib: '16:33', end: '19:15', today: true, work: [['09:30','12:45'],['14:00','15:15'],['15:15','16:15'],['18:00','19:15']], fixed: [] },
+    { label: 'WED', maghrib: '16:31', end: '18:31', work: [['09:30','10:15'],['12:45','14:00'],['16:46','17:31'],['17:31','18:31']], fixed: [['10:15','12:45'],['14:00','16:30']] },
+    { label: 'THU', maghrib: '16:30', end: '20:00', work: [['09:30','12:45'],['15:00','17:15'],['19:00','20:00']], fixed: [['18:00','18:30']] },
+    { label: 'FRI', maghrib: '16:28', end: '17:30', work: [['09:30','11:00'],['11:00','12:00'],['14:15','15:15'],['15:15','17:30']], fixed: [['12:00','14:00']] },
+    { label: 'SAT', maghrib: '16:26', end: '16:15', work: [['09:30','10:30'],['10:30','11:30'],['11:30','13:45'],['14:15','16:15']], fixed: [] },
+    { label: 'SUN', maghrib: '16:25', end: '19:00', work: [['09:30','11:30'],['13:15','14:30'],['14:30','16:45'],['16:45','19:00']], fixed: [['12:15','13:15']] },
+  ];
+  const days = week.map((d) => {
+    const cells = [];
+    for (let i = 0; i < 25; i++) {
+      const mid = 9.5 + i * 0.5 + 0.25;
+      const inAny = (list) => list.some(([a, b]) => mid >= t(a) && mid < t(b));
+      let c = '#1C1C20';
+      if (inAny(d.fixed)) c = '#6B6B73';
+      else if (inAny(d.work)) c = mid < t(d.maghrib) ? '#D4FF3A' : mid < 18 ? '#8FB31F' : mid < 20 ? '#FFB84D' : '#FF6B6B';
+      cells.push(c);
+    }
+    const late = t(d.end) > 18;
+    return { label: d.label, cells, end: d.end, labelColor: d.today ? '#D4FF3A' : '#EDEDED', endColor: late ? '#FFB84D' : '#A1A1AA' };
+  });
+  return { days };
+}
+}
+</script>
+</body>
+</html>

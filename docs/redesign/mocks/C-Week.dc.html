@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Week, rhythm direction</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&amp;family=DM+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0F4C4A}a:hover{color:#08302F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4EFE6; font-family: 'DM Sans', system-ui, sans-serif; color: #1F1B16; display: flex; flex-direction: column; position: relative; overflow: hidden">
+  <header style="padding: 28px 22px 12px; display: flex; flex-direction: column; gap: 4px">
+    <span style="font-size: 13px; color: #6B5F50; font-weight: 500">2 – 8 November</span>
+    <h1 style="margin: 0; font-family: Fraunces, serif; font-weight: 400; font-size: 34px; line-height: 1.05">The week's rhythm</h1>
+    <span style="font-size: 13px; color: #6B5F50">How full each stretch between prayers is</span>
+  </header>
+
+  <div style="padding: 4px 22px 0; display: grid; grid-template-columns: 44px repeat(5, minmax(0, 1fr)) 44px; gap: 4px; font-size: 10px; color: #6B5F50; text-align: center">
+    <span></span><span>→Dhuhr</span><span>→Asr</span><span>→Mgh</span><span>→Isha</span><span>Isha→</span><span style="text-align: right">Ends</span>
+  </div>
+
+  <div style="padding: 6px 22px 0; display: flex; flex-direction: column; gap: 6px">
+    <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+      <div style="display: grid; grid-template-columns: 44px repeat(5, minmax(0, 1fr)) 44px; gap: 4px; align-items: center; background: {{d.rowBg}}; border-radius: 14px; padding: 10px 0 10px 8px">
+        <span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">{{d.label}}</span><span style="font-size: 10px; color: #6B5F50">{{d.sub}}</span></span>
+        <sc-for list="{{d.segs}}" as="s" hint-placeholder-count="5">
+          <span style="height: 30px; border-radius: 8px; background: #E3DACB; position: relative; overflow: hidden">
+            <span style="position: absolute; left: 0; right: 0; bottom: 0; height: {{s.h}}; background: {{s.c}}"></span>
+          </span>
+        </sc-for>
+        <span style="font-size: 12px; font-weight: 500; text-align: right; padding-right: 8px; color: {{d.endColor}}">{{d.end}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin: 14px 22px 0; display: flex; gap: 14px; font-size: 11px; color: #6B5F50">
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #0F4C4A"></span>Work</span>
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #B06A2E"></span>Extended</span>
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #A79C8A"></span>Fixed</span>
+    <span>~ estimated times</span>
+  </div>
+
+  <div style="position: absolute; left: 22px; right: 22px; bottom: 92px; background: #FFFDF8; border-radius: 20px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 0 #E3DACB">
+    <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Next week from your template</span><span style="font-size: 12px; color: #6B5F50">Re-timed to 9 – 15 Nov prayer times</span></span>
+    <button style="height: 46px; padding: 0 16px; border-radius: 23px; border: none; background: #0F4C4A; color: #F4EFE6; font: 700 14px 'DM Sans', sans-serif">Preview</button>
+  </div>
+
+  <nav aria-label="Main" style="position: absolute; left: 12px; right: 12px; bottom: 14px; height: 64px; background: #1F1B16; border-radius: 32px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 6px; box-sizing: border-box; gap: 4px">
+    <a href="C-Today.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #E8DFD0; font-size: 13px; font-weight: 500">Today</a>
+    <a href="C-Week.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; background: #F4EFE6; color: #1F1B16; border-radius: 26px; font-size: 13px; font-weight: 700">Week</a>
+    <a href="C-Today.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #E8DFD0; font-size: 13px; font-weight: 500">Backlog</a>
+    <a href="C-Approval.dc.html" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #E8DFD0; font-size: 13px; font-weight: 500">Ask</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+  const W = '#0F4C4A', E = '#B06A2E', F = '#A79C8A';
+  const seg = (pct, c) => ({ h: pct + '%', c: c || W });
+  const raw = [
+    { label: 'Mon', sub: '11:49', end: '19:15', late: true, segs: [seg(100), seg(45), seg(55), seg(60, E), seg(70, E)] },
+    { label: 'Tue', sub: 'today', end: '19:15', late: true, today: true, segs: [seg(100), seg(45), seg(95), seg(0), seg(70, E)] },
+    { label: 'Wed', sub: '11:49', end: '18:31', late: true, segs: [seg(100, F), seg(100, F), seg(100, F), seg(100), seg(30, E)] },
+    { label: 'Thu', sub: '11:49', end: '20:00', late: true, segs: [seg(100), seg(30), seg(80), seg(30, F), seg(100, E)] },
+    { label: 'Fri', sub: 'Jumu’ah', end: '17:30', segs: [seg(100), seg(100, F), seg(90), seg(70), seg(0)] },
+    { label: 'Sat', sub: '~11:48', end: '16:15', segs: [seg(100), seg(100), seg(80), seg(0), seg(0)] },
+    { label: 'Sun', sub: '~11:48', end: '19:00', late: true, segs: [seg(85), seg(90, F), seg(100), seg(100), seg(75, E)] },
+  ];
+  const days = raw.map((d) => ({ ...d, rowBg: d.today ? '#FFFDF8' : 'transparent', endColor: d.late ? '#8A4B17' : '#1F1B16' }));
+  return { days };
+}
+}
+</script>
+</body>
+</html>
