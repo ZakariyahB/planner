@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Owned by Stream E (check-ins and prompts). -->
+<resources>
+    <string name="checkin_channel_checkins">Check-ins</string>
+    <string name="checkin_channel_checkins_desc">Start and end of each planned block, with Start, Done and replan buttons</string>
+    <string name="checkin_channel_prompts">Prompts</string>
+    <string name="checkin_channel_prompts_desc">Sunday deadlines, weekly Fajr times and the night-before review</string>
+
+    <string name="checkin_focus_label">Focus, 1 to 5</string>
+    <string name="checkin_focus_action">Rate focus</string>
+    <string name="checkin_fajr_hint">e.g. 5:40</string>
+    <string name="checkin_fajr_action">Enter time</string>
+
+    <string name="checkin_setup_title">Check-ins on time</string>
+    <string name="checkin_setup_allow">Allow</string>
+    <string name="checkin_setup_notifications">Notifications are off, so check-ins cannot appear.</string>
+    <string name="checkin_setup_exact">Exact alarms are off, so check-ins may arrive a few minutes late.</string>
+    <string name="checkin_setup_battery">Battery optimisation can still delay check-ins.</string>
+    <string name="checkin_battery_explainer">Android may hold back alarms while the phone sleeps to save battery, which can make a check-in arrive late. To keep them on time, open the battery settings, choose Planner and pick \"Don\'t optimise\" (or \"Unrestricted\"). Planner only wakes the phone for its own check-ins.</string>
+    <string name="checkin_battery_open">Open battery settings</string>
+    <string name="checkin_battery_got_it">Got it</string>
+</resources>

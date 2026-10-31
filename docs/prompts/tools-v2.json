@@ -1,0 +1,119 @@
+[
+  {
+    "name": "get_week",
+    "description": "Read-only. The planned blocks and fixed events for a range of days (at most 14), with each event's calendar_id and event_id, start and end times, tier, prayer buffer and day flags (rest time used, extended day, over the soft limit, estimated prayer times, overflow). Defaults to the 7 days from today.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "from": { "type": "string", "description": "First day, YYYY-MM-DD. Default today." },
+        "to": { "type": "string", "description": "Last day (inclusive), YYYY-MM-DD. Default from + 6 days." }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_tasks",
+    "description": "Read-only. The tasks in the backlog with their constraints: task_id, title, calendar, duration, assigned day, earliest start, after which prayer, deadline, splittable, priority, kind and status. Also lists template events whose titles did not parse (needs a look). Default: backlog and scheduled tasks.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["backlog", "scheduled", "done", "skipped", "all"], "description": "Which tasks. Default backlog and scheduled." }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_prayer_anchors",
+    "description": "Read-only. Prayer begin times (Dhuhr, Asr, Maghrib, Isha) for one date, as imported from the Prayer times calendar. Weekend times are estimated and marked interpolated; Friday has no Dhuhr. For explaining a plan only: never use them to work out times yourself.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD." }
+      },
+      "required": ["date"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "find_events",
+    "description": "Read-only. Finds calendar events whose title contains the query (case-insensitive) and returns the candidates with calendar_id, event_id, title, calendar, date and times, and whether each is recurring, organised by someone else or one of the app's own blocks. Use it before moving, editing or removing anything, and before replanning around an event. It never changes anything. Default range: 7 days ago to 35 days ahead.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Words from the title, e.g. \"Halaqa\", \"Quran class\", \"Lecture\"." },
+        "from": { "type": "string", "description": "First day, YYYY-MM-DD." },
+        "to": { "type": "string", "description": "Last day (inclusive), YYYY-MM-DD." }
+      },
+      "required": ["query"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "propose_changes",
+    "description": "Sends a draft of changes to the planning engine, which checks it (fixed events, prayer slots, tiers, constraints), works out every time, and puts the result on an approval card for the user. It writes nothing: the user approves or rejects on the card. Returns the proposal (proposal_id, each change before and after, flags, notes), or needs_choice with candidates when a target is ambiguous, or the rules it would break. Pass intent only: never a computed time.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string", "description": "One short sentence for the card header, e.g. \"Move tomorrow's lectures to Thursday\"." },
+        "changes": {
+          "type": "array",
+          "description": "The changes, in the order the user asked for them.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": ["add", "schedule_task", "move", "edit", "remove"],
+                "description": "add: a new task to plan (title, duration_min; day, category, constraints optional). schedule_task: plan an existing backlog task (task_id; day optional). move: move an exact event to another day (calendar_id, event_id, to_day). edit: change an exact event's title, duration or calendar. remove: remove an exact event."
+              },
+              "title": { "type": "string", "description": "add: the task's title. edit: the new title." },
+              "category": {
+                "type": "string",
+                "enum": ["Academic", "Lectures", "Quran and Arabic", "Commute", "Society", "Fitness", "Personal"],
+                "description": "The calendar, from the categories table. Leave out to let the app route it."
+              },
+              "duration_min": { "type": "integer", "description": "add: how long, from the user's words (2h is 120). edit: the new length. The engine adds any prayer buffer itself." },
+              "day": { "type": "string", "description": "add or schedule_task: the date to plan it on, YYYY-MM-DD. Leave out to let the engine choose." },
+              "earliest_start": { "type": "string", "description": "add or move: only a time the user said, HH:MM (\"from 15:00\")." },
+              "after_prayer": { "type": "string", "enum": ["Dhuhr", "Asr", "Maghrib", "Isha"], "description": "add: may not start before this prayer's slot ends (\"after Asr\")." },
+              "deadline": { "type": "string", "description": "add: due date, YYYY-MM-DD." },
+              "splittable": { "type": "boolean", "description": "add: false if it must be one block. Default true." },
+              "task_id": { "type": "string", "description": "schedule_task: from get_tasks or the context." },
+              "calendar_id": { "type": "string", "description": "move, edit, remove: exactly as find_events or get_week returned it." },
+              "event_id": { "type": "string", "description": "move, edit, remove: exactly as find_events or get_week returned it." },
+              "to_day": { "type": "string", "description": "move: the target date, YYYY-MM-DD. The engine finds the time." },
+              "scope": {
+                "type": "string",
+                "enum": ["this_instance", "this_and_following", "whole_series"],
+                "description": "edit, remove on a recurring event. Default this_instance."
+              }
+            },
+            "required": ["action"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["summary", "changes"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "replan",
+    "description": "Runs the planning engine for a situation and returns a proposal for the approval card. It writes nothing. Reasons: overrun (an event ran over: calendar_id, event_id, extra_min), stopped_early (the user stopped a block: calendar_id, event_id, at), plan_days (plan unscheduled tasks into days), rollover (copy the schedule template into a week: target_week_start, a Monday; the engine re-times it to that week's prayer times and fixed events), other (anything else: text). Returns the same shapes as propose_changes.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "reason": { "type": "string", "enum": ["overrun", "stopped_early", "plan_days", "rollover", "other"] },
+        "calendar_id": { "type": "string", "description": "overrun, stopped_early: from find_events or get_week." },
+        "event_id": { "type": "string", "description": "overrun, stopped_early: from find_events or get_week." },
+        "extra_min": { "type": "integer", "description": "overrun: how much longer it ran, from the user's words (1h is 60)." },
+        "at": { "type": "string", "description": "stopped_early: when the user stopped, HH:MM today or YYYY-MM-DDTHH:MM." },
+        "days": { "type": "array", "items": { "type": "string" }, "description": "plan_days: dates, YYYY-MM-DD." },
+        "target_week_start": { "type": "string", "description": "rollover: the Monday of the target week, YYYY-MM-DD." },
+        "text": { "type": "string", "description": "other: what happened, in the user's words." }
+      },
+      "required": ["reason"],
+      "additionalProperties": false
+    }
+  }
+]

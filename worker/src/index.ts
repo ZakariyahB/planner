@@ -10,6 +10,8 @@ export interface Env {
   /** Optional overrides for the model used for chat/replans and for scheduled runs. */
   MODEL_CHAT?: string;
   MODEL_SCHEDULED?: string;
+  /** "1" turns off the server-side refusal fallback (on by default for the Sonnet and Opus 5.5 models). */
+  DISABLE_FALLBACKS?: string;
 }
 
 export interface Deps {

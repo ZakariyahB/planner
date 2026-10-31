@@ -10,6 +10,8 @@ MONTHLY_CAP_GBP = "15"
 # Optional: override the models (defaults: claude-sonnet-5-5 for chat and replans, claude-haiku-5-5 for scheduled runs).
 # MODEL_CHAT = "claude-sonnet-5-5"
 # MODEL_SCHEDULED = "claude-haiku-5-5"
+# The v2 app names its model (X-Planner-Model); only models priced in src/pricing.ts or set above are accepted.
+# Server-side refusal fallback is on for claude-sonnet-5-5 and claude-opus-5-5; set DISABLE_FALLBACKS = "1" to turn it off.
 
 # Create with: wrangler kv namespace create USAGE, then paste the id here.
 [[kv_namespaces]]
