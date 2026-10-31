@@ -10,20 +10,33 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-/** The notifications of docs/PLAN.md "Routines and notifications" that this app owns, each with its own channel. */
-enum class Routine(val timed: Boolean) {
+/**
+ * The notifications of docs/PLAN.md "Routines and notifications" that this app owns, each with its own channel.
+ * [retired] ones are replaced by the v2 check-ins and prompts (app.planner.engine.checkin, app.planner.engine.nudge)
+ * and are no longer scheduled or sent; they stay in the enum until the legacy screens that list them are removed.
+ */
+enum class Routine(val timed: Boolean, val retired: Boolean = false) {
     /** First sleep block ended near Fajr: readiness so far and how long to go back to bed. */
     PROVISIONAL_READINESS(false),
 
     /** Phone unlocked after the final wake: readiness and the day. */
     MORNING_BRIEF(false),
-    WORK_STOPS(true),
-    PLAN_READY(true),
+
+    /** Replaced by the end check-in of each block ("Done / Need 30 more / Stop here"). */
+    WORK_STOPS(true, retired = true),
+
+    /** Replaced by the night-before 5-minute review prompt. */
+    PLAN_READY(true, retired = true),
     LIGHTS_OUT(true),
-    SUNDAY_REVIEW(true);
+
+    /** Replaced by the Sunday "upcoming deadlines?" prompt and the weekly rollover proposal. */
+    SUNDAY_REVIEW(true, retired = true);
 
     companion object {
         val TIMED: List<Routine> = entries.filter { it.timed }
+
+        /** Timed routines that still get an alarm. */
+        val ACTIVE_TIMED: List<Routine> = TIMED.filter { !it.retired }
 
         fun parse(name: String?): Routine? = entries.firstOrNull { it.name == name }
     }

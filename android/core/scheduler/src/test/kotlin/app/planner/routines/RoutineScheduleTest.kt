@@ -174,4 +174,11 @@ class RoutineScheduleTest {
         val packed = { d: LocalDate -> RoutineSchedule.fixedMinutesOn(d, zone, events) }
         assertEquals(at("2026-10-28", "22:00"), next(Routine.WORK_STOPS, at("2026-10-28", "08:00"), packed))
     }
+
+    @Test
+    fun `routines replaced by check-ins and prompts are retired, sleep coaching stays`() {
+        assertEquals(setOf(Routine.WORK_STOPS, Routine.PLAN_READY, Routine.SUNDAY_REVIEW), Routine.entries.filter { it.retired }.toSet())
+        assertEquals(listOf(Routine.LIGHTS_OUT), Routine.ACTIVE_TIMED)
+        assertTrue(Routine.ACTIVE_TIMED.all { it in Routine.TIMED })
+    }
 }
