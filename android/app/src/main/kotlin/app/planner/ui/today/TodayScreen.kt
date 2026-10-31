@@ -103,6 +103,7 @@ fun TodayRoute(
     onOpenSettings: () -> Unit,
     onSignIn: () -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp,
+    setupCard: @Composable () -> Unit = {},
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -122,6 +123,7 @@ fun TodayRoute(
     TodayContent(
         ui = state,
         bottomPadding = bottomPadding,
+        setupCard = setupCard,
         actions = TodayActions(
             onStart = { vm.start(it) },
             onDone = { vm.done(it) },
@@ -141,7 +143,12 @@ fun TodayRoute(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TodayContent(ui: TodayUi, actions: TodayActions, bottomPadding: androidx.compose.ui.unit.Dp = 96.dp) {
+fun TodayContent(
+    ui: TodayUi,
+    actions: TodayActions,
+    bottomPadding: androidx.compose.ui.unit.Dp = 96.dp,
+    setupCard: @Composable () -> Unit = {},
+) {
     val c = RhythmTheme.colors
     val t = ui.timeline
     var sheetFor by remember { mutableStateOf<TimelineBlock?>(null) }
@@ -156,6 +163,7 @@ fun TodayContent(ui: TodayUi, actions: TodayActions, bottomPadding: androidx.com
                 IconButton(onClick = actions.onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = c.ink) }
             }
         }
+        item(key = "setup") { setupCard() }
         if (ui.auth != AuthState.SIGNED_IN) {
             item(key = "auth") {
                 val expired = ui.auth == AuthState.EXPIRED

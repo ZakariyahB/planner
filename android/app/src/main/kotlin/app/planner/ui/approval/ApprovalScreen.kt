@@ -308,12 +308,19 @@ private fun ScopePicker(card: ChangeCardUi, scope: RecurrenceScope, actions: App
     Column(Modifier.selectableGroup()) {
         Text("Repeating event: $verb", style = MaterialTheme.typography.labelMedium, color = c.muted, modifier = Modifier.semantics { heading() })
         RecurrenceScope.entries.forEach { option ->
+            // Google Calendar writes for "this and following" are not supported yet (Stream B refuses them).
+            val enabled = option != RecurrenceScope.THIS_AND_FOLLOWING
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = option == scope, role = Role.RadioButton, onClick = { actions.onScope(card.id, option) }),
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = option == scope, enabled = enabled, role = Role.RadioButton, onClick = { actions.onScope(card.id, option) }),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = option == scope, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = c.accent))
-                Text(ApprovalCards.scopeOption(option), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp))
+                RadioButton(selected = option == scope, onClick = null, enabled = enabled, colors = RadioButtonDefaults.colors(selectedColor = c.accent))
+                Text(
+                    ApprovalCards.scopeOption(option) + if (enabled) "" else " (not supported yet)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (enabled) c.ink else c.muted,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
         }
     }
