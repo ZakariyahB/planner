@@ -27,10 +27,20 @@ class ReadinessTest {
     private val splitSecond = session("2026-10-28", "07:04", "2026-10-28", "09:14") // 2h10m
     private val sleptThrough = session("2026-10-27", "23:50", "2026-10-28", "07:20") // 7h30m
 
-    private fun fullNights(from: String, count: Int): List<SleepNight> = (0 until count).map { i ->
-        val d = LocalDate.parse(from).plusDays(i.toLong())
-        SleepNight(d, listOf(SleepBlock(d.atTime(0, 15).atZone(zone).toInstant(), d.atTime(7, 15).atZone(zone).toInstant(), 420)))
+    /** [count] full nights, 00:15 to 07:15, from the morning of [from]. */
+    private fun fullNights(from: String, count: Int): List<SleepSession> = (0 until count).map { i ->
+        val d = LocalDate.parse(from).plusDays(i.toLong()).toString()
+        session(d, "00:15", d, "07:15")
     }
+
+    private fun days(records: List<SleepSession>) = SleepDays.build(records, zone)
+
+    private fun today(records: List<SleepSession>, date: String = "2026-10-28"): Pair<SleepDay, List<SleepDay>> {
+        val all = days(records)
+        return all.single { it.wakeDate == LocalDate.parse(date) } to all
+    }
+
+    private val wake = LocalTime.of(8, 45)
 
     @Test
     fun `a single 3h33 block is one night with lights-out at 01 27`() {
@@ -58,10 +68,10 @@ class ReadinessTest {
     }
 
     @Test
-    fun `naps and tiny records are ignored and brief wake-ups merge`() {
+    fun `naps and short records are counted, and brief wake-ups merge`() {
         val nap = session("2026-10-28", "14:00", "2026-10-28", "14:40")
         val tiny = session("2026-10-28", "02:00", "2026-10-28", "02:10")
-        assertTrue(SleepGrouping.group(listOf(nap, tiny), zone).isEmpty())
+        assertEquals(50, SleepGrouping.group(listOf(nap, tiny), zone).sumOf { it.asleepMin })
 
         val a = session("2026-10-28", "00:30", "2026-10-28", "03:00")
         val b = session("2026-10-28", "03:20", "2026-10-28", "06:00")
@@ -78,41 +88,73 @@ class ReadinessTest {
     }
 
     @Test
+    fun `the 24 hours never reach back into yesterday's sleep`() {
+        val (day, all) = today(fullNights("2026-10-22", 6) + singleBlock)
+        val i = ReadinessEngine.inputsFor(day, all, doneRatio = null, zone)
+        assertEquals(213, i.asleepMin)
+        assertEquals(420 + 420 + 213, i.asleep72hMin)
+    }
+
+    @Test
+    fun `a nap yesterday afternoon counts in the 24 hours`() {
+        val nap = session("2026-10-27", "15:00", "2026-10-27", "15:45")
+        val (day, all) = today(fullNights("2026-10-22", 6) + nap + singleBlock)
+        assertEquals(213 + 45, ReadinessEngine.inputsFor(day, all, doneRatio = null, zone).asleepMin)
+    }
+
+    @Test
     fun `short single block after a good week is amber`() {
-        val history = fullNights("2026-10-22", 6)
-        val night = SleepGrouping.group(listOf(singleBlock), zone).single()
-        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(night, history + night, doneRatio = null, zone))
+        val (day, all) = today(fullNights("2026-10-22", 6) + singleBlock)
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(day, all, doneRatio = null, zone))
         assertEquals(213, r.inputs.asleepMin)
         assertEquals(207, r.inputs.debtMin)
         assertEquals(72, r.inputs.lightsOutDelayMin)
-        assertEquals(59, r.score)
+        assertEquals(64, r.score)
         assertEquals(ReadinessBand.AMBER, r.band)
     }
 
     @Test
-    fun `split night with enough total sleep and early lights-out is green`() {
-        val history = fullNights("2026-10-22", 6)
-        val night = SleepGrouping.group(listOf(splitFirst, splitSecond), zone).single()
-        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(night, history + night, doneRatio = null, zone))
+    fun `a Fajr-split day is scored on both blocks, not the first alone`() {
+        val (day, all) = today(fullNights("2026-10-22", 6) + splitFirst + splitSecond)
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(day, all, doneRatio = null, zone))
+        assertEquals(282 + 130, r.inputs.asleepMin)
         assertEquals(ReadinessBand.GREEN, r.band)
-        assertEquals(93, r.score)
+
+        val (first, firstOnly) = today(fullNights("2026-10-22", 6) + splitFirst)
+        assertTrue(ReadinessEngine.score(ReadinessEngine.inputsFor(first, firstOnly, null, zone)).score < r.score)
     }
 
     @Test
     fun `sleeping through the night scores green`() {
-        val night = SleepGrouping.group(listOf(sleptThrough), zone).single()
-        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(night, fullNights("2026-10-22", 6) + night, doneRatio = 1.0, zone))
+        val (day, all) = today(fullNights("2026-10-22", 6) + sleptThrough)
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(day, all, doneRatio = 1.0, zone))
         assertEquals(100, r.score)
     }
 
     @Test
     fun `his typical six hours and 01 27 lights-out is amber`() {
         val typical = (0 until 7).map { i ->
-            val d = LocalDate.parse("2026-10-22").plusDays(i.toLong())
-            SleepNight(d, listOf(SleepBlock(d.atTime(1, 27).atZone(zone).toInstant(), d.atTime(7, 27).atZone(zone).toInstant(), 360)))
+            val d = LocalDate.parse("2026-10-22").plusDays(i.toLong()).toString()
+            session(d, "01:27", d, "07:27")
         }
-        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(typical.last(), typical, doneRatio = null, zone))
+        val all = days(typical)
+        val r = ReadinessEngine.score(ReadinessEngine.inputsFor(all.last(), all, doneRatio = null, zone))
         assertEquals(ReadinessBand.AMBER, r.band)
+    }
+
+    @Test
+    fun `a bigger need lowers the score`() {
+        val (day, all) = today(fullNights("2026-10-22", 6) + sleptThrough)
+        val seven = ReadinessEngine.score(ReadinessEngine.inputsFor(day, all, null, zone))
+        val nine = ReadinessEngine.score(ReadinessEngine.inputsFor(day, all, null, zone, ReadinessConfig(needMin = 540)))
+        assertTrue(nine.score < seven.score)
+        assertEquals(540, nine.inputs.needMin)
+    }
+
+    @Test
+    fun `the four-input score still works without the 72 hours`() {
+        val r = ReadinessEngine.score(ReadinessInputs(asleepMin = 420, debtMin = 0, lightsOutDelayMin = 0, doneRatio = 1.0))
+        assertEquals(100, r.score)
     }
 
     @Test
@@ -125,14 +167,13 @@ class ReadinessTest {
 
     @Test
     fun `no sleep data for last night means waiting, never a score`() {
-        val state = ReadinessEngine.evaluate(at("2026-10-28", "08:00"), zone, LocalTime.of(8, 45), fullNights("2026-10-22", 6), null)
+        val state = ReadinessEngine.evaluate(at("2026-10-28", "08:00"), zone, wake, days(fullNights("2026-10-22", 6)), null)
         assertEquals(ReadinessState.Waiting, state)
     }
 
     @Test
     fun `after the first block at Fajr time it is provisional with back-to-bed advice`() {
-        val nights = fullNights("2026-10-22", 6) + SleepGrouping.group(listOf(splitFirst), zone)
-        val state = ReadinessEngine.evaluate(at("2026-10-28", "05:30"), zone, LocalTime.of(8, 45), nights, null)
+        val state = ReadinessEngine.evaluate(at("2026-10-28", "05:30"), zone, wake, days(fullNights("2026-10-22", 6) + splitFirst), null)
         assertIs<ReadinessState.Provisional>(state)
         assertEquals(282, state.asleepSoFarMin)
         assertEquals(BackToBedAdvice(sleepMin = 138, alarm = LocalTime.of(8, 45)), state.advice)
@@ -145,41 +186,82 @@ class ReadinessTest {
     }
 
     @Test
-    fun `final waits until 30 minutes after the last sleep, or 10 00`() {
-        val nights = fullNights("2026-10-22", 6) + SleepGrouping.group(listOf(splitFirst, splitSecond), zone)
-        val evaluate = { time: String -> ReadinessEngine.evaluate(at("2026-10-28", time), zone, LocalTime.of(8, 45), nights, null) }
+    fun `the wake window is learned from recent main wake-ups`() {
+        val all = days(fullNights("2026-10-22", 6))
+        assertEquals(WakeWindow(LocalTime.of(6, 45), LocalTime.of(8, 15)), ReadinessEngine.wakeWindow(all, LocalDate.parse("2026-10-28"), zone))
+        // too few days: the default
+        assertEquals(ReadinessConfig().defaultWakeWindow, ReadinessEngine.wakeWindow(all.take(3), LocalDate.parse("2026-10-28"), zone))
+    }
+
+    @Test
+    fun `final comes 30 minutes after a sleep that ended in the usual wake window`() {
+        val all = days(fullNights("2026-10-22", 6) + splitFirst + splitSecond)
+        val evaluate = { time: String -> ReadinessEngine.evaluate(at("2026-10-28", time), zone, wake, all, null) }
         assertIs<ReadinessState.Provisional>(evaluate("09:30"))
         assertIs<ReadinessState.Final>(evaluate("09:50"))
+    }
 
-        val early = fullNights("2026-10-22", 6) + SleepGrouping.group(listOf(session("2026-10-28", "00:30", "2026-10-28", "05:00")), zone)
-        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "06:00"), zone, LocalTime.of(8, 45), early, null))
-        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "09:00"), zone, LocalTime.of(8, 45), early, null))
-        assertIs<ReadinessState.Final>(ReadinessEngine.evaluate(at("2026-10-28", "10:00"), zone, LocalTime.of(8, 45), early, null))
-        // A confirmed unlock after 07:00 settles it earlier, but not before 07:00.
-        assertIs<ReadinessState.Final>(ReadinessEngine.evaluate(at("2026-10-28", "07:30"), zone, LocalTime.of(8, 45), early, null, awakeConfirmed = true))
-        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "06:30"), zone, LocalTime.of(8, 45), early, null, awakeConfirmed = true))
+    @Test
+    fun `a sleep that ended at Fajr becomes final once the usual wake window is over or he has been up for hours`() {
+        val early = days(fullNights("2026-10-22", 6) + session("2026-10-28", "00:30", "2026-10-28", "05:00"))
+        val evaluate = { time: String, unlocked: Boolean -> ReadinessEngine.evaluate(at("2026-10-28", time), zone, wake, early, null, unlocked) }
+        assertIs<ReadinessState.Provisional>(evaluate("06:00", false))
+        assertIs<ReadinessState.Provisional>(evaluate("08:00", false))
+        assertIs<ReadinessState.Final>(evaluate("08:20", false)) // past his usual 06:45 to 08:15
+        // An unlock inside the window settles it earlier, but not before the window opens.
+        assertIs<ReadinessState.Final>(evaluate("07:30", true))
+        assertIs<ReadinessState.Provisional>(evaluate("06:30", true))
+
+        // With no history the default window (07:00 to 10:00) applies, and four hours awake is enough.
+        val alone = days(listOf(session("2026-10-28", "00:30", "2026-10-28", "05:00")))
+        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "08:59"), zone, wake, alone, null))
+        assertIs<ReadinessState.Final>(ReadinessEngine.evaluate(at("2026-10-28", "09:00"), zone, wake, alone, null))
+    }
+
+    @Test
+    fun `final follows his own wake window, not a clock time`() {
+        // He usually sleeps until 11:00, so at 10:00, two hours after an 08:00 wake-up, another sleep is still likely.
+        val late = (0 until 6).map { i ->
+            val d = LocalDate.parse("2026-10-22").plusDays(i.toLong()).toString()
+            session(d, "03:00", d, "11:00")
+        } + session("2026-10-28", "03:00", "2026-10-28", "08:00")
+        val all = days(late)
+        assertIs<ReadinessState.Provisional>(ReadinessEngine.evaluate(at("2026-10-28", "10:00"), zone, wake, all, null))
+        assertIs<ReadinessState.Final>(ReadinessEngine.evaluate(at("2026-10-28", "12:00"), zone, wake, all, null))
+    }
+
+    @Test
+    fun `sleep that has not ended yet is not counted`() {
+        val all = days(fullNights("2026-10-22", 6) + splitFirst + splitSecond)
+        val state = ReadinessEngine.evaluate(at("2026-10-28", "06:00"), zone, wake, all, null)
+        assertIs<ReadinessState.Provisional>(state)
+        assertEquals(282, state.asleepSoFarMin)
     }
 
     @Test
     fun `median lights-out is taken across the evening boundary`() {
-        val nights = listOf("23:50", "00:30", "01:27").mapIndexed { i, t ->
-            val d = LocalDate.parse("2026-10-24").plusDays(i.toLong())
-            val start = LocalTime.parse(t).let { lt -> if (lt >= LocalTime.of(18, 0)) d.minusDays(1).atTime(lt) else d.atTime(lt) }
-            SleepNight(d, listOf(SleepBlock(start.atZone(zone).toInstant(), start.plusHours(6).atZone(zone).toInstant(), 360)))
-        }
-        assertEquals(LocalTime.of(0, 30), ReadinessEngine.medianLightsOut(nights, zone))
+        val all = days(
+            listOf("23:50", "00:30", "01:27").mapIndexed { i, t ->
+                val d = LocalDate.parse("2026-10-24").plusDays(i.toLong())
+                val lt = LocalTime.parse(t)
+                val start = if (lt >= LocalTime.of(18, 0)) d.minusDays(1).atTime(lt) else d.atTime(lt)
+                SleepSession(start.atZone(zone).toInstant(), start.plusHours(6).atZone(zone).toInstant(), 360)
+            },
+        )
+        assertEquals(LocalTime.of(0, 30), ReadinessEngine.medianLightsOut(all, zone))
         assertNull(ReadinessEngine.medianLightsOut(emptyList(), zone))
     }
 
     @Test
     fun `forecast shows what an on-time lights-out buys against his usual late one`() {
-        val history = fullNights("2026-10-22", 6)
+        val history = days(fullNights("2026-10-22", 6))
         val tonight = LocalDate.parse("2026-10-27")
         val onTime = ReadinessEngine.forecast(LocalTime.of(0, 15), LocalTime.of(8, 45), tonight, history, null)
         val late = ReadinessEngine.forecast(LocalTime.of(1, 27), LocalTime.of(8, 45), tonight, history, null)
         assertEquals(ReadinessBand.GREEN, onTime.band)
         assertTrue(onTime.score > late.score)
         assertEquals(433, onTime.inputs.asleepMin)
+        assertEquals(433 + 420 + 420, onTime.inputs.asleep72hMin)
     }
 }
 

@@ -10,9 +10,13 @@ export interface Price {
   cacheReadPerM: number;
 }
 
+// List prices as of October 2026; 5-minute cache writes are 1.25x input.
 export const PRICES: Record<string, Price> = {
-  "claude-sonnet-5-5": { inputPerM: 3, outputPerM: 15, cacheWritePerM: 3.75, cacheReadPerM: 0.3 },
-  "claude-haiku-5-5": { inputPerM: 1, outputPerM: 5, cacheWritePerM: 1.25, cacheReadPerM: 0.1 },
+  "claude-sonnet-5-5": { inputPerM: 2, outputPerM: 10, cacheWritePerM: 2.5, cacheReadPerM: 0.2 },
+  "claude-haiku-5-5": { inputPerM: 0.1, outputPerM: 0.5, cacheWritePerM: 0.125, cacheReadPerM: 0.01 },
+  "claude-opus-5-5": { inputPerM: 4, outputPerM: 20, cacheWritePerM: 5, cacheReadPerM: 0.2 },
+  // Where a server-side fallback can land.
+  "claude-sonnet-5": { inputPerM: 2, outputPerM: 10, cacheWritePerM: 2.5, cacheReadPerM: 0.2 },
 };
 
 /** Approximate exchange rate for the cap, which is set in pounds. */

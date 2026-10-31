@@ -5,8 +5,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.util.Log
 import androidx.core.content.ContextCompat
+import app.planner.checkin.CheckInWork
 
-/** Everything the routines need at process start. Each step is independent, so one failing never blocks the rest. */
+/** Everything the routines and check-ins need at process start. Each step is independent, so one failing never blocks the rest. */
 object RoutineBootstrap {
     private const val TAG = "RoutineBootstrap"
 
@@ -22,6 +23,7 @@ object RoutineBootstrap {
         }
         attempt("periodic job") { RoutineWork.startPeriodic(app) }
         attempt("alarms") { RoutineWork.reschedule(app) }
+        attempt("check-ins") { CheckInWork.start(app) }
     }
 
     private fun attempt(what: String, block: () -> Unit) {

@@ -13,6 +13,7 @@ import app.planner.data.toEntity
 import app.planner.data.toSession
 import app.planner.errors.PlainErrors
 import app.planner.readiness.SleepSession
+import app.planner.readiness.SleepSources
 import app.planner.readiness.SleepStage
 import app.planner.readiness.StageKind
 import app.planner.readiness.sleepSessionFromStages
@@ -83,8 +84,9 @@ class SleepRepository @Inject constructor(
 
     /**
      * Replaces the Health Connect rows of the last three weeks with what Health Connect has now: when he slept,
-     * when he woke, the times he was awake in between, and the total slept. The last seven nights are what the
-     * app and the assistant show.
+     * when he woke, the times he was awake in between, and the total slept. Each record's writer (`dataOrigin`)
+     * decides whether it is kept: Fitbit's records always, another app's (such as Samsung Health) only for a sleep
+     * day Fitbit has nothing for, so two apps recording the same night are never added together.
      */
     suspend fun syncFromHealthConnect(): SleepSyncResult {
         val status = healthStatus()
@@ -98,7 +100,7 @@ class SleepRepository @Inject constructor(
                     timeRangeFilter = TimeRangeFilter.between(since, clock.instant().plus(Duration.ofHours(1))),
                 ),
             ).records
-            val sessions = records.map(::toSession)
+            val sessions = SleepSources.select(records.map(::toSession), clock.zone)
             dao.deleteHealthConnectSince(since.toEpochMilli())
             dao.insertAll(sessions.map { it.toEntity(SLEEP_SOURCE_HEALTH_CONNECT) })
             SleepSyncResult.Synced(sessions.size)
@@ -122,9 +124,10 @@ class SleepRepository @Inject constructor(
 
     private fun lookbackStart(): Instant = clock.instant().minus(Duration.ofDays(LOOKBACK_DAYS))
 
-    /** Time in bed minus the stretches he was awake; see [sleepSessionFromStages] for why. */
+    /** Time in bed minus the stretches he was awake (see [sleepSessionFromStages] for why), with the app that wrote it. */
     private fun toSession(r: SleepSessionRecord): SleepSession =
         sleepSessionFromStages(r.startTime, r.endTime, r.stages.map { SleepStage(stageKind(it.stage), it.startTime, it.endTime) })
+            .copy(origin = r.metadata.dataOrigin.packageName)
 
     private fun stageKind(stage: Int): StageKind = when (stage) {
         SleepSessionRecord.STAGE_TYPE_AWAKE,

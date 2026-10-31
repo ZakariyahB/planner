@@ -1,32 +1,22 @@
 package app.planner.routines
 
 import app.planner.data.DayRulesRepository
-import android.content.Context
 import android.util.Log
-import app.planner.data.BlockDao
 import app.planner.data.SettingsRepository
-import app.planner.data.TaskRepository
-import app.planner.data.toBlock
-import app.planner.model.Task
-import app.planner.model.TaskStatus
+import app.planner.engine.ports.CheckInRescheduler
+import app.planner.engine.ports.PlannerQueries
 import app.planner.model.Weeks
-import app.planner.plan.PlanRepository
-import app.planner.plan.PlanSummary
 import app.planner.readiness.BackToBedAdvice
-import app.planner.readiness.ReadinessBand
 import app.planner.readiness.ReadinessEngine
 import app.planner.readiness.ReadinessInputs
 import app.planner.readiness.ReadinessState
-import app.planner.scheduler.Block
-import app.planner.scheduler.BlockKind
-import app.planner.scheduler.DayRules
 import app.planner.sleep.ReadinessRepository
 import app.planner.sleep.SleepRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -35,25 +25,25 @@ import kotlinx.coroutines.withContext
 
 /**
  * What each routine does when it is due. The workers and receivers only call in here; the decisions live in
- * app.planner.routines core (RoutineTriggers, NotificationTexts, SundayReview). No step needs the network, the
- * AI, a permission or Health Connect data to be present: a missing one means that step is skipped.
+ * app.planner.routines core (RoutineTriggers, NotificationTexts). No step needs the network, the AI, a permission
+ * or Health Connect data to be present: a missing one means that step is skipped.
+ *
+ * Planner v2: the routines that planned or replanned on their own (work stops, tomorrow's plan, the Sunday review,
+ * the Monday catch-up, replanning on new sleep, "Lighten today") are retired. Every change to the plan is now a
+ * ChangeSet the user approves, and the check-ins and prompts in app.planner.checkin replace those notifications.
+ * What stays is sleep coaching: back to bed, the morning brief and the lights-out warning.
  */
 @Singleton
 class RoutineRunner @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val plan: PlanRepository,
-    private val tasks: TaskRepository,
     private val settings: SettingsRepository,
     private val readiness: ReadinessRepository,
     private val sleep: SleepRepository,
     private val routines: RoutineSettings,
     private val notifier: Notifier,
     private val scheduler: RoutineScheduler,
-    private val blocks: BlockDao,
-    private val planRows: TomorrowPlanRepository,
-    private val planNotes: PlanNoteWriter,
-    private val reviews: SundayReviewRepository,
     private val dayRules: DayRulesRepository,
+    private val planner: Provider<PlannerQueries>,
+    private val checkIns: Provider<CheckInRescheduler>,
     private val clock: Clock,
 ) {
     suspend fun runJob(job: String?) {
@@ -63,20 +53,17 @@ class RoutineRunner @Inject constructor(
                 scheduler.rescheduleAll()
             }
             RoutineWork.JOB_MORNING_UNLOCK -> guard("unlock") { morning(awakeConfirmed = true) }
-            RoutineWork.JOB_LIGHTEN -> lighten()
+            RoutineWork.JOB_LIGHTEN -> notifier.cancel(Routine.MORNING_BRIEF) // a button left on an old notification
             else -> Routine.parse(job)?.takeIf { it.timed }?.let { fire(it) }
         }
     }
 
-    /** A timed routine is due. Whatever happens, the next occurrence gets its alarm. */
+    /** A timed routine is due. Whatever happens, the next occurrence gets its alarm (retired ones are cancelled). */
     suspend fun fire(routine: Routine) {
         try {
-            if (routines.enabled(routine)) {
+            if (!routine.retired && routines.enabled(routine)) {
                 when (routine) {
-                    Routine.WORK_STOPS -> workStops()
-                    Routine.PLAN_READY -> planReady()
                     Routine.LIGHTS_OUT -> lightsOut()
-                    Routine.SUNDAY_REVIEW -> sundayReview()
                     else -> Unit
                 }
             }
@@ -88,8 +75,10 @@ class RoutineRunner @Inject constructor(
     /**
      * Settings' "Send now": a timed routine runs for real. The two driven by last night's sleep need a night of
      * data to fire on their own, so they post a sample built from made-up numbers, marked as a test.
+     * Retired routines send nothing.
      */
     suspend fun sendNow(routine: Routine) {
+        if (routine.retired) return
         if (routine.timed) {
             guard("send now") { fire(routine) }
             return
@@ -101,7 +90,7 @@ class RoutineRunner @Inject constructor(
             }
             else -> {
                 val readiness = ReadinessEngine.score(ReadinessInputs(asleepMin = 300, debtMin = 360, lightsOutDelayMin = 72, doneRatio = 0.7))
-                NotificationTexts.morningBrief(readiness, DayOutline(5, LocalTime.of(9, 30), "PintOS"), loadCutCount = 2)
+                NotificationTexts.morningBrief(readiness, DayOutline(5, LocalTime.of(9, 30), "PintOS"), loadCutCount = 0)
             }
         }
         notifier.post(routine, text.copy(title = "Test: ${text.title}"))
@@ -111,62 +100,18 @@ class RoutineRunner @Inject constructor(
     suspend fun periodic() {
         routines.ensureStarted()
         guard("sleep sync") { sleep.syncFromHealthConnect() }
-        guard("replan on new sleep") { plan.replanIfSleepChanged() }
         guard("provisional readiness") { provisional() }
-        guard("calendar items") { if (plan.syncCalendarTasks() > 0) plan.replan() }
         guard("morning brief fallback") { morning(awakeConfirmed = false) }
-        guard("monday catch-up") { mondayCatchUp() }
         guard("alarms") { scheduler.rescheduleAll() }
+        // A safety net: syncs reschedule check-ins themselves, but a missed one is caught within 15 minutes.
+        guard("check-ins") { checkIns.get().reschedule() }
     }
 
     // Timed routines
 
-    private suspend fun workStops() {
-        val today = LocalDate.now(clock)
-        val planned = tasksPlannedOn(today)
-        val unfinished = planned.filter { it.status == TaskStatus.OPEN || it.status == TaskStatus.PARTIAL }
-        // Work has stopped: what was not done is planned again, and the notice says where it went.
-        if (unfinished.isNotEmpty()) guard("replan at work stop") { plan.replan() }
-        val after = blocks.fromDate(today.toString()).map { it.toBlock() }.filter { it.kind == BlockKind.TASK }
-        val moved = unfinished.mapNotNull { task ->
-            val next = after.filter { it.taskId == task.id }.minByOrNull { it.date }
-            when {
-                next == null -> MovedTask(task.title, null)
-                next.date == today -> null // in progress or locked: it did not move
-                else -> MovedTask(task.title, next.date)
-            }
-        }
-        val summary = WorkStopsSummary(done = planned.count { it.status == TaskStatus.DONE }, planned = planned.size, moved = moved, today = today)
-        notifier.post(Routine.WORK_STOPS, NotificationTexts.workStops(summary))
-    }
-
-    private suspend fun planReady() {
-        val today = LocalDate.now(clock)
-        val date = today.plusDays(1)
-        // All-day calendar items become tasks with a time before the day is described.
-        guard("calendar items") { if (plan.syncCalendarTasks() > 0) plan.replan() }
-        val rows = planRows.rowsOn(date)
-        val facts = planRows.factsOn(date)
-        val outline = TomorrowPlan.outline(rows, emptySet(), facts)
-        val forecast = forecastNote()
-        val note = planNotes.write(date, rows, forecast, facts) // null if the AI is unavailable; the text stands on its own
-        notifier.post(Routine.PLAN_READY, NotificationTexts.planReady(outline, forecast), LaunchTarget.TOMORROW_PLAN, extraLine = note)
-        routines.markSent(Routine.PLAN_READY, today)
-    }
-
     private suspend fun lightsOut() {
         val rules = dayRules.current()
         notifier.post(Routine.LIGHTS_OUT, NotificationTexts.lightsOutSoon(rules.lightsOut, rules.wake))
-    }
-
-    private suspend fun sundayReview() {
-        val monday = Weeks.mondayOf(LocalDate.now(clock))
-        val report = reviews.report(monday)
-        notifier.post(
-            Routine.SUNDAY_REVIEW,
-            NotificationTexts.sundayReview(report.plannedMin, report.doneMin),
-            LaunchTarget.SUNDAY_REVIEW,
-        )
     }
 
     // Event-driven routines
@@ -191,6 +136,7 @@ class RoutineRunner @Inject constructor(
     /**
      * Final readiness and the morning brief, once a day: after he unlocks the phone past 07:00, or from 10:00.
      * No final score (no sleep data) means no brief; it is tried again at the next 15-minute run until 14:00.
+     * The brief describes today's plan as it is on the calendar; it no longer replans or proposes a lighter day.
      */
     suspend fun morning(awakeConfirmed: Boolean) {
         val today = LocalDate.now(clock)
@@ -200,58 +146,29 @@ class RoutineRunner @Inject constructor(
         val view = readiness.evaluate(awakeConfirmed)
         val final = view.state as? ReadinessState.Final ?: return
 
-        // The day's load is now fixed: plan again. A lighter band also needs the proposed cut for the notice.
-        var summary: PlanSummary? = null
-        val calendarChanged = try {
-            plan.syncCalendarTasks() > 0 // all-day items of today get a time too
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            false
-        }
-        if (view.newlyFinal || calendarChanged || final.readiness.band != ReadinessBand.GREEN) summary = plan.replan()
-
         if (routines.enabled(Routine.MORNING_BRIEF)) {
-            val outline = TomorrowPlan.outline(planRows.rowsOn(today), emptySet(), planRows.factsOn(today))
-            val cut = summary?.loadCut?.size ?: 0
-            notifier.post(
-                Routine.MORNING_BRIEF,
-                NotificationTexts.morningBrief(final.readiness, outline, cut),
-                LaunchTarget.TODAY,
-                actions = if (cut > 0) listOf(RoutineActionReceiver.lightenAction(context)) else emptyList(),
-            )
+            notifier.post(Routine.MORNING_BRIEF, NotificationTexts.morningBrief(final.readiness, todayOutline(), loadCutCount = 0))
         }
         routines.markSent(Routine.MORNING_BRIEF, today)
     }
 
-    /** The "Lighten today" button: approve the proposed cut. */
-    private suspend fun lighten() {
-        plan.approveLoadCut()
-        notifier.cancel(Routine.MORNING_BRIEF)
-    }
-
-    /** A skipped Sunday check-in still gets the week generated from the template. Safe to repeat. */
-    private suspend fun mondayCatchUp() {
-        val week = SundayReview.catchUpWeek(LocalDate.now(clock), routines.generatedWeeks()) ?: return
-        val created = tasks.generateFromTemplate(settings.template.first(), weeksAhead = 0)
-        routines.markWeekGenerated(week)
-        if (created > 0) plan.replan()
-    }
-
-    // Helpers
-
-    private suspend fun forecastNote(): ForecastNote? {
-        val f = readiness.evaluate().forecast ?: return null
-        return ForecastNote(dayRules.current().lightsOut, f.onTime.score, f.usualLightsOut, f.usual?.score)
-    }
-
-    /** Tasks that had a block on [date], once each, with their current status. */
-    private suspend fun tasksPlannedOn(date: LocalDate): List<Task> {
-        val byId = tasks.snapshot().associateBy { it.id }
-        return blocks.between(date.toString(), date.toString()).map { it.toBlock() }
-            .filter { it.kind == BlockKind.TASK }
-            .mapNotNull { b: Block -> b.taskId?.let(byId::get) }
-            .distinctBy { it.id }
+    /** Today from the v2 planner: task blocks, the first one, fixed events and unscheduled template tasks. */
+    private suspend fun todayOutline(): DayOutline = try {
+        val state = planner.get().observeToday().first()
+        val tasks = state.blocks.filter { !it.isFixed }.sortedBy { it.start }
+        val first = tasks.firstOrNull()
+        DayOutline(
+            taskCount = tasks.size,
+            firstStart = first?.start?.toLocalTime(),
+            firstTitle = first?.let { listOfNotNull(it.title, it.chunkLabel).joinToString(" ") },
+            fixedCount = state.blocks.count { it.isFixed },
+            unplacedCount = state.unscheduled.size,
+        )
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "No plan for the morning brief", e)
+        DayOutline(0, null, null)
     }
 
     private suspend fun guard(label: String, block: suspend () -> Unit) {
