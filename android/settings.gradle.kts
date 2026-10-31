@@ -16,7 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "planner"
 
-include(":core:scheduler")
+include(":core:scheduler", ":engine", ":calendar", ":assistant")
 // `-PcoreOnly` builds just the pure-Kotlin module, for machines without the Android SDK.
 if (!providers.gradleProperty("coreOnly").isPresent) {
     include(":app")

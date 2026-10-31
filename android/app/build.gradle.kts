@@ -61,6 +61,9 @@ android {
 
 dependencies {
     implementation(project(":core:scheduler"))
+    implementation(project(":engine"))
+    implementation(project(":calendar"))
+    implementation(project(":assistant"))
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.play.services.auth)
