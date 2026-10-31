@@ -110,11 +110,83 @@ describe("model routing", () => {
   });
 });
 
+describe("the model the app names", () => {
+  it("is used when it is one the cap can price", async () => {
+    const s = setup();
+    await call(s, chat, { "X-Planner-Model": "claude-opus-5-5" });
+    expect(s.calls[0].body.model).toBe("claude-opus-5-5");
+  });
+
+  it("wins over the purpose's default", async () => {
+    const s = setup();
+    await call(s, chat, { "X-Planner-Purpose": "scheduled", "X-Planner-Model": "claude-sonnet-5-5" });
+    expect(s.calls[0].body.model).toBe("claude-sonnet-5-5");
+  });
+
+  it("may be a configured override", async () => {
+    const s = setup();
+    s.env.MODEL_CHAT = "custom-chat";
+    await call(s, chat, { "X-Planner-Model": "custom-chat" });
+    expect(s.calls[0].body.model).toBe("custom-chat");
+  });
+
+  it("is refused when unknown, before anything is spent", async () => {
+    const s = setup();
+    const res = await call(s, chat, { "X-Planner-Model": "claude-something-expensive" });
+    expect(res.status).toBe(400);
+    expect(s.calls).toHaveLength(0);
+  });
+});
+
+describe("server-side refusal fallback", () => {
+  it("is requested for sonnet and opus 5.5", async () => {
+    for (const model of ["claude-sonnet-5-5", "claude-opus-5-5"]) {
+      const s = setup();
+      await call(s, chat, { "X-Planner-Model": model });
+      expect(s.calls[0].headers.get("anthropic-beta")).toBe("server-side-fallback-2026-07-01");
+      expect(s.calls[0].body.fallbacks).toBe("default");
+    }
+  });
+
+  it("is not requested for haiku, or when turned off", async () => {
+    const haiku = setup();
+    await call(haiku, chat, { "X-Planner-Purpose": "scheduled" });
+    expect(haiku.calls[0].headers.get("anthropic-beta")).toBeNull();
+    expect(haiku.calls[0].body.fallbacks).toBeUndefined();
+
+    const off = setup();
+    off.env.DISABLE_FALLBACKS = "1";
+    await call(off, chat);
+    expect(off.calls[0].headers.get("anthropic-beta")).toBeNull();
+    expect(off.calls[0].body.fallbacks).toBeUndefined();
+  });
+
+  it("cannot be chosen by the client", async () => {
+    const s = setup();
+    s.env.DISABLE_FALLBACKS = "1";
+    await call(s, { ...chat, fallbacks: [{ model: "claude-fable-5-1" }] });
+    expect(s.calls[0].body.fallbacks).toBeUndefined();
+  });
+
+  it("prices the reply at the model that answered", async () => {
+    const s = setup(
+      () =>
+        new Response(
+          JSON.stringify({ model: "claude-sonnet-5", content: [], usage: { input_tokens: 1_000_000, output_tokens: 0 } }),
+          { status: 200 },
+        ),
+    );
+    const usage = JSON.parse((await call(s, chat, { "X-Planner-Model": "claude-opus-5-5" })).headers.get("X-Planner-Usage")!);
+    expect(usage.model).toBe("claude-sonnet-5");
+    expect(usage.costGbp).toBeCloseTo(2 * 0.8, 4);
+  });
+});
+
 describe("request limits", () => {
   it("clamps max_tokens and turns streaming off", async () => {
     const s = setup();
     await call(s, { ...chat, max_tokens: 100_000, stream: true });
-    expect(s.calls[0].body.max_tokens).toBe(2048);
+    expect(s.calls[0].body.max_tokens).toBe(8192);
     expect(s.calls[0].body.stream).toBe(false);
   });
 
@@ -207,8 +279,8 @@ describe("monthly spend cap", () => {
 describe("usage reporting", () => {
   it("adds the call's cost to this month's total", async () => {
     const s = setup(() => anthropicOk({ input_tokens: 100_000, output_tokens: 10_000 }));
-    await call(s, chat); // sonnet: (100k * $3 + 10k * $15) / 1M = $0.45 = about £0.36
-    expect(Number(s.kv.store.get("spend:2026-10"))).toBeCloseTo(0.36, 4);
+    await call(s, chat); // sonnet: (100k * $2 + 10k * $10) / 1M = $0.30 = about £0.24
+    expect(Number(s.kv.store.get("spend:2026-10"))).toBeCloseTo(0.24, 4);
   });
 
   it("tells the app what the call used and cost, and the month so far", async () => {
@@ -216,22 +288,22 @@ describe("usage reporting", () => {
     s.kv.store.set("spend:2026-10", "1");
     const usage = JSON.parse((await call(s, chat)).headers.get("X-Planner-Usage")!);
     expect(usage).toMatchObject({ model: "claude-sonnet-5-5", inputTokens: 100_000, outputTokens: 10_000 });
-    expect(usage.costGbp).toBeCloseTo(0.36, 4);
-    expect(usage.monthGbp).toBeCloseTo(1.36, 4);
+    expect(usage.costGbp).toBeCloseTo(0.24, 4);
+    expect(usage.monthGbp).toBeCloseTo(1.24, 4);
   });
 
   it("prices scheduled runs at the cheaper model's rate", async () => {
     const s = setup(() => anthropicOk({ input_tokens: 100_000, output_tokens: 10_000 }));
     const usage = JSON.parse((await call(s, chat, { "X-Planner-Purpose": "scheduled" })).headers.get("X-Planner-Usage")!);
     expect(usage.model).toBe("claude-haiku-5-5");
-    expect(usage.costGbp).toBeCloseTo(0.12, 4); // (100k * $1 + 10k * $5) / 1M * 0.8
+    expect(usage.costGbp).toBeCloseTo(0.012, 4); // (100k * $0.10 + 10k * $0.50) / 1M * 0.8
   });
 
   it("counts cache reads and writes", async () => {
     const s = setup(() => anthropicOk({ input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 1_000_000, cache_read_input_tokens: 1_000_000 }));
     const usage = JSON.parse((await call(s, chat)).headers.get("X-Planner-Usage")!);
     expect(usage).toMatchObject({ cacheWriteTokens: 1_000_000, cacheReadTokens: 1_000_000 });
-    expect(usage.costGbp).toBeCloseTo((3.75 + 0.3) * 0.8, 4);
+    expect(usage.costGbp).toBeCloseTo((2.5 + 0.2) * 0.8, 4);
   });
 
   it("records nothing for a failed call", async () => {
