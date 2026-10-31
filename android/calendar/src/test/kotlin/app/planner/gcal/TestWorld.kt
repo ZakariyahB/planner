@@ -25,6 +25,7 @@ import app.planner.gcal.interim.InterimPlanningEngine
 import app.planner.gcal.interim.InterimPrayerModel
 import app.planner.gcal.sync.CalendarSync
 import app.planner.gcal.write.DefaultCalendarWriter
+import app.planner.engine.schedule.Engine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -106,6 +107,7 @@ class TestWorld(
     events: List<EventSnapshot> = Fixture.allEvents(),
     val settings: Settings = Settings(),
     gatewayFactory: (List<CalendarInfo>, List<EventSnapshot>, () -> Instant) -> FakeCalendarGateway = ::IncrementalFakeGateway,
+    val kind: EngineKind = EngineKind.REAL,
 ) {
     val clock: () -> Instant = { now.atZone(settings.zone).toInstant() }
     val gateway: FakeCalendarGateway = gatewayFactory(Fixture.calendars(settings), events, clock)
@@ -119,7 +121,9 @@ class TestWorld(
     val rescheduler = CheckInRescheduler { reschedules++ }
     val sync = CalendarSync(gateway, snapshots, auth, rescheduler, { now }, clock)
     val service = PlannerService(
-        engine = InterimPlanningEngine(), prayers = InterimPrayerModel(), placer = InterimBlockPlacer(), sync = sync,
+        engine = if (kind == EngineKind.REAL) Engine.planning else InterimPlanningEngine(),
+        prayers = if (kind == EngineKind.REAL) Engine.prayers else InterimPrayerModel(),
+        placer = if (kind == EngineKind.REAL) Engine.placer else InterimBlockPlacer(), sync = sync,
         tasks = tasks, changeSets = changeSets, snapshots = snapshots, settings = settingsStore, logs = logs, auth = auth,
         now = { now }, clock = clock, ids = IdSource.counting("p"), fetch = { runCatching { gateway.event(it) }.getOrNull() },
     )
@@ -138,6 +142,9 @@ class TestWorld(
 
     suspend fun eventsOn(day: LocalDate): List<EventSnapshot> = gateway.events(day, day.plusDays(1))
 }
+
+/** Stream A's engine, or the small interim engine this stream was first built against. */
+enum class EngineKind { REAL, INTERIM }
 
 /** A fake whose incremental reads report only what changed since the token, including deletions, like Google. */
 open class IncrementalFakeGateway(

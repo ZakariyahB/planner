@@ -5,6 +5,8 @@ import app.planner.engine.model.PrayerAnchor
 import app.planner.engine.model.Settings
 import app.planner.engine.model.Tier
 import app.planner.engine.schedule.DayFlag
+import app.planner.engine.schedule.TierWindows
+import app.planner.engine.model.Prayer
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -36,15 +38,11 @@ object BlockMath {
 
 /** newplan 5.3: the highest tier a block touches, judged by where it ends. Boundaries come from [Settings]. */
 object Tiers {
+    /** The engine's own windows ([TierWindows]): tier 0 runs to the end of the Maghrib slot. */
     fun of(start: LocalDateTime, end: LocalDateTime, maghrib: LocalTime?, settings: Settings): Tier {
-        if (end.toLocalDate().isAfter(start.toLocalDate())) return Tier.OVER_SOFT_LIMIT
-        val t = end.toLocalTime()
-        return when {
-            t.isAfter(settings.extendedEnd) -> Tier.OVER_SOFT_LIMIT
-            t.isAfter(settings.normalEnd) -> Tier.EXTENDED
-            maghrib != null && t.isAfter(maghrib) -> Tier.REST
-            else -> Tier.NORMAL
-        }
+        val day = start.toLocalDate()
+        val anchors = listOfNotNull(maghrib?.let { PrayerAnchor(day, Prayer.MAGHRIB, it) })
+        return TierWindows.of(day, settings, anchors).tierOf(start, end)
     }
 
     fun dayFlags(tiers: Collection<Tier>, interpolatedPrayers: Boolean, hasOverflow: Boolean): Set<DayFlag> = buildSet {

@@ -26,12 +26,13 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
-class ProposalsTest {
+/** Runs against Stream A's engine and against the interim engine. */
+abstract class ProposalsContract(private val kind: EngineKind) {
     private fun proposed(o: ProposalOutcome) = assertIs<ProposalOutcome.Proposed>(o, "got $o").changeSet
 
     @Test
     fun `proposing writes nothing and saves the proposal for the approval card`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val writesBefore = w.gateway.writeLog.size
         val cs = proposed(w.service.propose(listOf(ChangeDraft.AddTask("Internship apps", durationMin = 120, day = day(6))), ChangeSource.ASSISTANT, "Add internship apps"))
         assertEquals(writesBefore, w.gateway.writeLog.size)
@@ -47,7 +48,7 @@ class ProposalsTest {
 
     @Test
     fun `scheduling a template task edits its all-day event into the first timed block`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val taskId = TemplateImporter.idFor(cal(CalendarCategory.LECTURES), "allday-lec-ps-mon")
         val cs = proposed(w.service.propose(listOf(ChangeDraft.ScheduleTask(taskId)), ChangeSource.USER, "Plan Lecture - P&S"))
         val edit = cs.changes.single()
@@ -63,7 +64,7 @@ class ProposalsTest {
 
     @Test
     fun `planning a day proposes every template task and flags the extended block`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = proposed(w.service.planDays(listOf(day(0)), ChangeSource.USER))
         assertEquals(4, cs.changes.size)
         assertTrue(cs.changes.all { it.type == ChangeType.EDIT && ChangeFlag.CONVERTS_ALL_DAY in it.flags })
@@ -76,7 +77,7 @@ class ProposalsTest {
 
     @Test
     fun `weekend blocks say the prayer time was interpolated`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = proposed(w.service.planDays(listOf(day(5)), ChangeSource.USER))
         val covering = cs.changes.filter { it.after!!.description!!.contains("Includes") }
         assertTrue(covering.isNotEmpty())
@@ -86,7 +87,7 @@ class ProposalsTest {
     @Test
     fun `remove asks which when the title matches more than one event`() = runTest {
         val extra = Fixture.snapshot(cal(CalendarCategory.PERSONAL), "quran-class-next", "Quran class (Sh Anass)", EventTime.Timed(at(3, "18:00").plusDays(7), at(3, "18:30").plusDays(7)))
-        val w = TestWorld(events = Fixture.allEvents() + extra).start()
+        val w = TestWorld(kind = kind, events = Fixture.allEvents() + extra).start()
         val o = w.service.propose(listOf(ChangeDraft.RemoveEvent(EventRef("", "Quran class"))), ChangeSource.ASSISTANT, "Remove Quran class")
         val choice = assertIs<ProposalOutcome.NeedsChoice>(o)
         assertEquals(2, choice.candidates.size)
@@ -95,7 +96,7 @@ class ProposalsTest {
 
     @Test
     fun `remove resolves the exact event and shows it as the target`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = proposed(w.service.propose(listOf(ChangeDraft.RemoveEvent(EventRef("", "Quran class"))), ChangeSource.ASSISTANT, "Remove Quran class"))
         val c = cs.changes.single()
         assertEquals(ChangeType.REMOVE, c.type)
@@ -106,7 +107,7 @@ class ProposalsTest {
 
     @Test
     fun `prayer times can never be targeted`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val ref = EventRef(Fixture.PRAYER, "prayer-asr-${day(0)}")
         val o = w.service.propose(listOf(ChangeDraft.RemoveEvent(ref)), ChangeSource.ASSISTANT, "x")
         assertIs<ProposalOutcome.Rejected>(o)
@@ -116,7 +117,7 @@ class ProposalsTest {
     @Test
     fun `calendars the user has not allowed are read-only`() = runTest {
         val settings = app.planner.engine.model.Settings(writableCategories = CalendarCategory.entries.toSet() - CalendarCategory.PERSONAL)
-        val w = TestWorld(settings = settings).start()
+        val w = TestWorld(kind = kind, settings = settings).start()
         val o = w.service.propose(listOf(ChangeDraft.RemoveEvent(EventRef(cal(CalendarCategory.PERSONAL), "bol-wed"))), ChangeSource.USER, "x")
         assertIs<ProposalOutcome.Rejected>(o)
     }
@@ -124,7 +125,7 @@ class ProposalsTest {
     @Test
     fun `external organiser and recurring flags, default scope this instance`() = runTest {
         val lesson = Fixture.snapshot(cal(CalendarCategory.QURAN_ARABIC), "arabic-lesson-sun", "Arabic lesson", EventTime.Timed(at(6, "12:15"), at(6, "13:15")), organiserIsExternal = true, recurring = "arabic-series")
-        val w = TestWorld(events = Fixture.allEvents().filter { it.ref.eventId != "arabic-lesson-sun" } + lesson).start()
+        val w = TestWorld(kind = kind, events = Fixture.allEvents().filter { it.ref.eventId != "arabic-lesson-sun" } + lesson).start()
         val cs = proposed(w.service.propose(listOf(ChangeDraft.EditEvent(lesson.ref, title = "Arabic lesson (online)")), ChangeSource.USER, "Rename"))
         val c = cs.changes.single()
         assertTrue(ChangeFlag.EXTERNAL_ORGANISER in c.flags)
@@ -134,7 +135,7 @@ class ProposalsTest {
 
     @Test
     fun `moving two lectures to the same day does not stack them`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         applyAll(w, w.service.planDays(listOf(day(1)), ChangeSource.USER))
         val lectures = w.service.findEvents("Lecture", day(1), day(2))
         assertEquals(2, lectures.size)
@@ -150,7 +151,7 @@ class ProposalsTest {
     @Test
     fun `halaqa ran over pushes the blocks after it`() = runTest {
         val halaqa = Fixture.snapshot(cal(CalendarCategory.PERSONAL), "halaqa-wed", "Halaqa", EventTime.Timed(at(2, "14:00"), at(2, "16:30")))
-        val w = TestWorld(events = Fixture.allEvents() + halaqa).start()
+        val w = TestWorld(kind = kind, events = Fixture.allEvents() + halaqa).start()
         applyAll(w, w.service.planDays(listOf(day(2)), ChangeSource.USER))
         val before = w.service.week(Fixture.monday).days[2].blocks.filter { !it.isFixed }
         val after16 = before.filter { !it.start.isBefore(at(2, "16:30")) }
@@ -164,7 +165,7 @@ class ProposalsTest {
 
     @Test
     fun `need 30 more extends the block`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         applyAll(w, w.service.planDays(listOf(day(0)), ChangeSource.USER))
         val sheet = w.service.findEvents("problem sheet", day(0), day(1)).single()
         w.now = at(0, "11:25")
@@ -179,7 +180,7 @@ class ProposalsTest {
 
     @Test
     fun `stop here shortens the block and proposes the rest for the catch-up day`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         applyAll(w, w.service.planDays(listOf(day(1)), ChangeSource.USER))
         val pintos = w.service.findEvents("PintOS", day(1), day(2)).single()
         w.now = at(1, "10:30")
@@ -194,21 +195,21 @@ class ProposalsTest {
 
     @Test
     fun `adding a task that does not fit says so and proposes nothing`() = runTest {
-        val w = TestWorld().start()
-        val o = w.service.propose(listOf(ChangeDraft.AddTask("Huge essay", durationMin = 720, day = day(2))), ChangeSource.USER, "x")
+        val w = TestWorld(kind = kind).start()
+        val o = w.service.propose(listOf(ChangeDraft.AddTask("Huge essay", durationMin = 720, day = day(2), splittable = false)), ChangeSource.USER, "x")
         val nothing = assertIs<ProposalOutcome.NothingToDo>(o)
         assertTrue(nothing.reason.contains("backlog"))
     }
 
     @Test
     fun `nonsense durations are rejected`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         assertIs<ProposalOutcome.Rejected>(w.service.propose(listOf(ChangeDraft.AddTask("x", durationMin = 0)), ChangeSource.USER, "x"))
     }
 
     @Test
     fun `after prayer constraint is kept`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = proposed(w.service.propose(listOf(ChangeDraft.AddTask("Arabic revision", durationMin = 60, day = day(0), afterPrayer = Prayer.ASR)), ChangeSource.USER, "x"))
         val t = cs.changes.single().after!!.time as EventTime.Timed
         assertTrue(!t.start.isBefore(at(0, "14:20")), "$t")
@@ -219,7 +220,7 @@ class ProposalsTest {
     @Test
     fun `rollover copies the template into next week with the gaps it assumed`() = runTest {
         val halaqa = Fixture.snapshot(cal(CalendarCategory.PERSONAL), "halaqa-wed", "Halaqa", EventTime.Timed(at(2, "14:00"), at(2, "16:30")), recurring = "halaqa-series")
-        val w = TestWorld(events = Fixture.allEvents() + halaqa).start()
+        val w = TestWorld(kind = kind, events = Fixture.allEvents() + halaqa).start()
         val next = Fixture.monday.plusDays(7)
         val cs = proposed(w.service.rollover(next, ChangeSource.USER))
         assertTrue(cs.changes.isNotEmpty())
@@ -237,3 +238,7 @@ suspend fun applyAll(w: TestWorld, outcome: ProposalOutcome) {
     val record = w.writer.apply(ApprovalGate.approveAll(cs))
     check(record.allVerified) { "not verified: ${record.results}" }
 }
+
+class ProposalsTest : ProposalsContract(EngineKind.REAL)
+
+class ProposalsInterimTest : ProposalsContract(EngineKind.INTERIM)

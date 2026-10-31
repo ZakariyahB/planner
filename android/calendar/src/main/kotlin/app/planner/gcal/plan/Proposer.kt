@@ -95,12 +95,21 @@ class Proposer(
                 } + added.filter { it.start.toLocalDate() == day }
 
         fun planOn(day: LocalDate, newTasks: List<Task>): PlanResult =
-            engine.plan(
-                PlanRequest(
-                    days = listOf(day), tasks = newTasks, fixed = fixedOn(day), anchors = ctx.anchors(listOf(day)),
-                    settings = ctx.settings, notBefore = if (day == today()) now.now() else null, keep = keepOn(day),
+            onlyFor(
+                newTasks,
+                engine.plan(
+                    PlanRequest(
+                        days = listOf(day), tasks = newTasks, fixed = fixedOn(day), anchors = ctx.anchors(listOf(day)),
+                        settings = ctx.settings, notBefore = if (day == today()) now.now() else null, keep = keepOn(day),
+                    ),
                 ),
             )
+    }
+
+    /** The engine returns kept placements with the new ones; only the placements of [tasks] are new work. */
+    private fun onlyFor(tasks: List<Task>, result: PlanResult): PlanResult {
+        val ids = tasks.map { it.id }.toSet()
+        return result.copy(placements = result.placements.filter { it.taskId in ids }, overflow = result.overflow.filter { it.taskId in ids })
     }
 
     suspend fun propose(drafts: List<ChangeDraft>, source: ChangeSource, summary: String): ProposalOutcome {
@@ -366,7 +375,7 @@ class Proposer(
             ),
         )
         val s = Session(ctx)
-        accept(s, plan, todo.associateBy { it.id })
+        accept(s, onlyFor(todo, plan), todo.associateBy { it.id })
         val label = if (upcoming.size == 1) upcoming.first().label() else "${upcoming.first().label()} to ${upcoming.last().label()}"
         return finish(s, source, "Plan $label: ${s.changes.size} block${if (s.changes.size == 1) "" else "s"}")
     }

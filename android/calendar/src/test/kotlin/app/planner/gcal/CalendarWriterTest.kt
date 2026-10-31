@@ -32,14 +32,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /** newplan 13.4: the approval flow over a fake calendar, including one that applies the wrong change. */
-class CalendarWriterTest {
+abstract class CalendarWriterContract(private val kind: EngineKind) {
     private fun proposed(o: ProposalOutcome): ChangeSet = assertIs<ProposalOutcome.Proposed>(o, "got $o").changeSet
 
     private suspend fun mondayPlan(w: TestWorld) = proposed(w.service.planDays(listOf(day(0)), ChangeSource.USER))
 
     @Test
     fun `approve all applies, verifies, tags, links tasks and records the undo`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = mondayPlan(w)
         val record = w.writer.apply(ApprovalGate.approveAll(cs))
 
@@ -62,7 +62,7 @@ class CalendarWriterTest {
 
     @Test
     fun `the writer's own changes are not mistaken for the user's edits on the next sync`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         w.writer.apply(ApprovalGate.approveAll(mondayPlan(w)))
         w.sync.refresh()
         assertTrue(w.changeSets.observePending().first().isEmpty())
@@ -70,7 +70,7 @@ class CalendarWriterTest {
 
     @Test
     fun `rejected changes are dropped and an empty approval writes nothing`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = mondayPlan(w)
         val keep = cs.changes.first()
         val writes = w.gateway.writeLog.size
@@ -90,7 +90,7 @@ class CalendarWriterTest {
 
     @Test
     fun `an event changed after the proposal is STALE, not written, and proposed again`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = proposed(w.service.propose(listOf(ChangeDraft.MoveEvent(EventRef(cal(CalendarCategory.PERSONAL), "bol-wed"), day(3))), ChangeSource.USER, "Move BoL"))
         val gw = w.gateway as IncrementalFakeGateway
         gw.userEdit(EventRef(cal(CalendarCategory.PERSONAL), "bol-wed")) { it.copy(title = "BoL (room 2)") }
@@ -110,7 +110,7 @@ class CalendarWriterTest {
 
     @Test
     fun `a calendar that applies the wrong change is caught by verification`() = runTest {
-        val w = TestWorld(gatewayFactory = ::MisbehavingGateway).start()
+        val w = TestWorld(kind = kind, gatewayFactory = ::MisbehavingGateway).start()
         val cs = mondayPlan(w)
         val record = w.writer.apply(ApprovalGate.approveAll(cs))
         assertTrue(record.results.all { it.status == ChangeStatus.FAILED }, "${record.results}")
@@ -126,7 +126,7 @@ class CalendarWriterTest {
 
     @Test
     fun `inserts with the wrong title fail verification too`() = runTest {
-        val w = TestWorld(gatewayFactory = ::MisbehavingGateway).start()
+        val w = TestWorld(kind = kind, gatewayFactory = ::MisbehavingGateway).start()
         val cs = proposed(w.service.propose(listOf(ChangeDraft.AddTask("Internship apps", durationMin = 60, day = day(6))), ChangeSource.USER, "x"))
         val r = w.writer.apply(ApprovalGate.approveAll(cs)).results.single()
         assertEquals(ChangeStatus.FAILED, r.status)
@@ -135,7 +135,7 @@ class CalendarWriterTest {
 
     @Test
     fun `undo puts back edited, removed and added events`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val bol = EventRef(cal(CalendarCategory.PERSONAL), "bol-wed")
         val bolBefore = w.event(bol)!!
         val cs = proposed(
@@ -174,7 +174,7 @@ class CalendarWriterTest {
 
     @Test
     fun `undo leaves alone an event the user changed after it was applied`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val record = w.writer.apply(ApprovalGate.approveAll(mondayPlan(w)))
         val sheet = w.eventsOn(day(0)).single { it.title == "P&S problem sheet" }
         (w.gateway as IncrementalFakeGateway).userEdit(sheet.ref) { it.copy(time = EventTime.Timed(at(0, "10:00"), at(0, "12:00"))) }
@@ -186,7 +186,7 @@ class CalendarWriterTest {
 
     @Test
     fun `retrying an applied ChangeSet is idempotent`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = proposed(
             w.service.propose(
                 listOf(ChangeDraft.AddTask("Internship apps", durationMin = 60, day = day(6)), ChangeDraft.MoveEvent(EventRef(cal(CalendarCategory.PERSONAL), "bol-wed"), day(3))),
@@ -206,7 +206,7 @@ class CalendarWriterTest {
 
     @Test
     fun `a retry after a partial failure finishes the rest without duplicating the done part`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = mondayPlan(w)
         val gw = w.gateway
         // first change succeeds, then sign-in expires
@@ -219,7 +219,7 @@ class CalendarWriterTest {
 
     @Test
     fun `sign-in expiry stops the run without crashing and queues nothing`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val cs = mondayPlan(w)
         w.gateway.authExpired = true
         val record = w.writer.apply(ApprovalGate.approveAll(cs))
@@ -236,7 +236,7 @@ class CalendarWriterTest {
 
     @Test
     fun `expiry in the middle fails the remaining changes and writes none of them`() = runTest {
-        val w = TestWorld(gatewayFactory = { c, e, k -> ExpiringGateway(c, e, k, writesAllowed = 1) }).start()
+        val w = TestWorld(kind = kind, gatewayFactory = { c, e, k -> ExpiringGateway(c, e, k, writesAllowed = 1) }).start()
         val cs = mondayPlan(w)
         val record = w.writer.apply(ApprovalGate.approveAll(cs))
         assertEquals(ChangeStatus.VERIFIED, record.results[0].status)
@@ -247,7 +247,7 @@ class CalendarWriterTest {
 
     @Test
     fun `prayer times and read-only calendars are refused even in an approved ChangeSet`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val prayer = w.event(EventRef(Fixture.PRAYER, "prayer-asr-${day(0)}"))!!
         val bad = ChangeSet(
             "bad", ChangeSource.USER, "x",
@@ -266,7 +266,7 @@ class CalendarWriterTest {
 
     @Test
     fun `invalid client ids are refused`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val bad = ChangeSet(
             "bad", ChangeSource.USER, "x",
             listOf(Change("c1", ChangeType.ADD, after = EventDraft(cal(CalendarCategory.PERSONAL), "x", EventTime.Timed(at(0, "09:30"), at(0, "10:00"))), newEventId = "Not_Base32!")),
@@ -281,7 +281,7 @@ class CalendarWriterTest {
             Fixture.snapshot(cal(CalendarCategory.PERSONAL), "quran-class_${i}", "Quran class (Sh Anass)", EventTime.Timed(at(3, "18:00").plusWeeks(i.toLong()), at(3, "18:30").plusWeeks(i.toLong())), recurring = "quran-class")
         }
         val events = Fixture.allEvents().filter { it.ref.eventId != "quran-class-thu" } + series
-        val w = TestWorld(events = events, gatewayFactory = ::RecurringFakeGateway).start()
+        val w = TestWorld(kind = kind, events = events, gatewayFactory = ::RecurringFakeGateway).start()
 
         val one = proposed(w.service.propose(listOf(ChangeDraft.RemoveEvent(series[0].ref)), ChangeSource.USER, "x"))
         assertEquals(RecurrenceScope.THIS_INSTANCE, one.changes.single().scope)
@@ -299,12 +299,16 @@ class CalendarWriterTest {
 
     @Test
     fun `apply reschedules check-ins and refreshes`() = runTest {
-        val w = TestWorld().start()
+        val w = TestWorld(kind = kind).start()
         val before = w.reschedules
         w.writer.apply(ApprovalGate.approveAll(mondayPlan(w)))
         assertTrue(w.reschedules > before)
     }
 }
+
+class CalendarWriterTest : CalendarWriterContract(EngineKind.REAL)
+
+class CalendarWriterInterimTest : CalendarWriterContract(EngineKind.INTERIM)
 
 /** Lets [writesAllowed] writes through, then reports the Google sign-in as expired. */
 class ExpiringGateway(
