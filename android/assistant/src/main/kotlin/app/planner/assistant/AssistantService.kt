@@ -86,10 +86,10 @@ class AssistantService(
             turns.value = turns.value + turn(ChatRole.NOTE, "The assistant started a fresh conversation; it no longer sees the earlier messages.")
         }
 
-        val bundle = prompts()
         val model = runCatching { settings.current().assistantModel }.getOrNull()
         val user = Message(Role.USER, listOf(ContentBlock.Text(context()), ContentBlock.Text(words)))
         val result = try {
+            val bundle = prompts()
             ToolLoop(llm, tools, maxRounds).run(bundle.system, bundle.tools, past, user, model = model, purpose = Purpose.CHAT)
         } catch (e: CancellationException) {
             throw e
