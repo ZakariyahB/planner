@@ -146,6 +146,22 @@ class NotificationTextsTest {
     }
 
     @Test
+    fun `a day with calendar events or tasks waiting for a time is not called empty`() {
+        assertEquals("1 calendar event.", NotificationTexts.planReady(DayOutline(0, null, null, fixedCount = 1), null).body)
+        assertEquals("2 tasks without a time yet.", NotificationTexts.planReady(DayOutline(0, null, null, unplacedCount = 2), null).body)
+        assertEquals(
+            "3 tasks, first PintOS at 09:30; 2 calendar events; 1 task without a time yet.",
+            NotificationTexts.planReady(DayOutline(3, LocalTime.of(9, 30), "PintOS", fixedCount = 2, unplacedCount = 1), null).body,
+        )
+    }
+
+    @Test
+    fun `the morning brief counts calendar events and unplaced tasks too`() {
+        val t = NotificationTexts.morningBrief(readiness(90), DayOutline(0, null, null, fixedCount = 2, unplacedCount = 1), loadCutCount = 0)
+        assertEquals("Slept 7h. 2 calendar events; 1 task without a time yet.", t.body)
+    }
+
+    @Test
     fun `the forecast line is the one shared by the notification and the sheet`() {
         val f = ForecastNote(LocalTime.of(0, 15), 78, LocalTime.of(1, 27), 52)
         assertEquals("Lights-out at 00:15 gives readiness 78; your usual 01:27 gives 52.", NotificationTexts.forecastLine(f))

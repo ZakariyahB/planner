@@ -1,5 +1,7 @@
 # Day Planner v2: build plan (for Claude Code)
 
+> **Superseded.** This is the earlier build plan, kept for history. It is not the Planner v2 described in newplan.md. The current spec is [redesign/newplan.md](redesign/newplan.md) and the build plan is [redesign/STREAMS.md](redesign/STREAMS.md).
+
 ## Context
 
 ZB is a 2nd-year Imperial Computing student with a full week: online lectures and tutorials (recordings come out about 1h after each live slot), coursework (PintOS, Prob & Stats, OS, ADA, SDE), Arabic study, prayer-anchored routines, BoL, Halaqa, Sh Anass and society work.
@@ -27,7 +29,7 @@ Design reference: the "Day Planner v0 — interface & journey" canvas. Its v2 bo
 | Codebase | New monorepo `planner` (GitHub, private) |
 | Install | Run from Android Studio onto his phone; no Play Store |
 | Calendar | Read **all** his Google calendars; write timed blocks **only** to a new `Planner` calendar; read back edits made there |
-| Task sources | **Tasks come from him only**: in-app entry (text/voice/chat) + the weekly template + the **Sunday check-in asking for upcoming deadlines**. Google Calendar is read **only for fixed commitments** (classes, meetings, interviews, BoL, Halaqa…), never imported as tasks |
+| Task sources | **Tasks come from him only**: in-app entry (text/voice/chat) + the weekly template + the **Sunday check-in asking for upcoming deadlines**. Google Calendar is read for fixed commitments (classes, meetings, interviews, BoL, Halaqa…); its **all-day events** become tasks (length and start time read from brackets in the title) that the scheduler places like any other |
 | Scheduling | Suggested start/end per task; **no splitting**, each task is one block |
 | Prayer times | Weekdays: from his `Prayer times` calendar (Dhuhr/Asr/Maghrib/Isha). **Fajr: asked weekly on Sunday** (one rough time per week). Weekends: no prayer events; anchors like "after Asr" use the nearest weekday's time |
 | AI autonomy | **Small moves auto-apply with Undo** (same-day shift ≤ 60 min). Asks first before dropping a task, moving it to another day, or cutting the load |

@@ -1,5 +1,6 @@
 package app.planner.routines
 
+import app.planner.calendar.CalendarTasks
 import app.planner.model.Task
 import app.planner.model.TaskStatus
 import app.planner.scheduler.Block
@@ -18,7 +19,15 @@ data class PlanRow(
     val end: LocalTime,
     /** Switching it off pushes it past its due day, so the sheet warns about it. */
     val dueByTomorrow: Boolean,
+    /** An all-day calendar item the planner gave a time to. */
+    val fromCalendar: Boolean = false,
 )
+
+/** A calendar event at a fixed time, or a commitment, as the note on tomorrow's plan lists it. */
+data class FixedLine(val start: LocalTime, val end: LocalTime, val title: String)
+
+/** Everything about a day besides its task blocks: the fixed events and the tasks still waiting for a time. */
+data class DayFacts(val fixed: List<FixedLine> = emptyList(), val unplaced: List<String> = emptyList())
 
 object TomorrowPlan {
     /** Tomorrow's blocks of tasks still to do, in start order. */
@@ -30,15 +39,28 @@ object TomorrowPlan {
                 val task = b.taskId?.let(tasks::get) ?: return@mapNotNull null
                 if (task.status != TaskStatus.OPEN && task.status != TaskStatus.PARTIAL) return@mapNotNull null
                 val due = task.dueAt?.atZone(zone)?.toLocalDate()
-                PlanRow(task.id, task.title, task.module, b.start, b.end, dueByTomorrow = due != null && due <= date)
+                PlanRow(task.id, task.title, task.module, b.start, b.end, dueByTomorrow = due != null && due <= date, fromCalendar = CalendarTasks.isCalendarTask(task))
             }
 
     /** What the notification and the sheet header say about the rows that are still switched on. */
-    fun outline(rows: List<PlanRow>, excluded: Set<Long>): DayOutline {
+    fun outline(rows: List<PlanRow>, excluded: Set<Long>, facts: DayFacts = DayFacts()): DayOutline {
         val kept = rows.filter { it.taskId !in excluded }
         val first = kept.firstOrNull()
-        return DayOutline(kept.size, first?.start, first?.title)
+        return DayOutline(kept.size, first?.start, first?.title, facts.fixed.size, facts.unplaced.size)
     }
+
+    /**
+     * Tasks still to do that have no block anywhere in the plan, and that [date] should carry: due on or before
+     * it, or with no due date, and already available. The planner could not find them a time.
+     */
+    fun unplaced(tasks: Collection<Task>, placedTaskIds: Set<Long>, date: LocalDate, zone: ZoneId): List<Task> =
+        tasks.filter { t ->
+            val due = t.dueAt?.atZone(zone)?.toLocalDate()
+            (t.status == TaskStatus.OPEN || t.status == TaskStatus.PARTIAL) &&
+                t.id !in placedTaskIds &&
+                (due == null || due <= date) &&
+                (t.availableFrom == null || t.availableFrom.atZone(zone).toLocalDate() <= date)
+        }.sortedWith(compareBy<Task> { it.dueAt ?: Instant.MAX }.thenByDescending { it.priority }.thenBy { it.title.lowercase() })
 
     /** Excluding a task from tomorrow makes it available from the day after, never earlier than it already was. */
     fun defer(task: Task, tomorrow: LocalDate, zone: ZoneId): Task {

@@ -82,4 +82,34 @@ class UsageSessionsTest {
     fun `apps with under half a minute of use are left out`() {
         assertEquals(emptyMap(), minutes(listOf(UsageEvent(insta, UsageEventType.FOREGROUND, 1_000_000), UsageEvent(insta, UsageEventType.BACKGROUND, 1_020_000))))
     }
+
+    private fun screen(pkg: String, activity: String, atMin: Long) = UsageEvent(pkg, UsageEventType.FOREGROUND, atMin * min, activity)
+
+    private fun leave(pkg: String, activity: String, atMin: Long) = UsageEvent(pkg, UsageEventType.BACKGROUND, atMin * min, activity)
+
+    private fun screenOff(atMin: Long) = UsageEvent("android", UsageEventType.SCREEN_OFF, atMin * min)
+
+    @Test
+    fun `moving between the screens of one app is one session`() {
+        // Reels opens before the feed has gone away: the feed's pause must not end the session early.
+        val events = listOf(screen(insta, "Feed", 100), screen(insta, "Reels", 110), leave(insta, "Feed", 111), leave(insta, "Reels", 130))
+        assertEquals(mapOf(insta to 30), minutes(events))
+    }
+
+    @Test
+    fun `two screens of one app side by side are not counted twice`() {
+        val events = listOf(screen(insta, "A", 100), screen(insta, "B", 100), leave(insta, "A", 120), leave(insta, "B", 120))
+        assertEquals(mapOf(insta to 20), minutes(events))
+    }
+
+    @Test
+    fun `the screen going off ends every open session`() {
+        val events = listOf(fg(insta, 100), screenOff(115), fg(tiktok, 200), screenOff(210), bg(insta, 400))
+        assertEquals(mapOf(insta to 15, tiktok to 10), minutes(events))
+    }
+
+    @Test
+    fun `an app that was not open when the screen went off adds nothing`() {
+        assertEquals(emptyMap(), minutes(listOf(screenOff(50))))
+    }
 }

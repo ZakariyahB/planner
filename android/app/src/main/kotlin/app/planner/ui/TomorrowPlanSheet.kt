@@ -50,7 +50,7 @@ fun TomorrowPlanSheet(onDismiss: () -> Unit, onAsk: (String) -> Unit, vm: Tomorr
             ui.forecast?.let { item { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             ui.note?.let { item { Text(it) } }
 
-            if (ui.loaded && ui.rows.isEmpty()) {
+            if (ui.loaded && ui.rows.isEmpty() && ui.facts.fixed.isEmpty() && ui.facts.unplaced.isEmpty()) {
                 item { Text("Nothing is planned for tomorrow.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             items(ui.rows, key = { it.taskId }) { row ->
@@ -77,6 +77,16 @@ fun TomorrowPlanSheet(onDismiss: () -> Unit, onAsk: (String) -> Unit, vm: Tomorr
                     }
                     Switch(checked = included, onCheckedChange = { vm.toggle(row.taskId) })
                 }
+            }
+            if (ui.facts.fixed.isNotEmpty()) {
+                item { Text("Calendar events", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+                items(ui.facts.fixed) { f ->
+                    Text("${timeFormat.format(f.start)}–${timeFormat.format(f.end)} · ${f.title}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (ui.facts.unplaced.isNotEmpty()) {
+                item { Text("Waiting for a time", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+                items(ui.facts.unplaced) { title -> Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             item {
                 Row(Modifier.padding(top = 8.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -49,6 +49,11 @@ object RoutineChannels {
     fun create(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         for (routine in Routine.entries) {
+            if (routine.retired) {
+                // Replaced by check-ins and prompts: take the old channel out of the system settings.
+                manager.deleteNotificationChannel(id(routine))
+                continue
+            }
             val info = routine.info
             manager.createNotificationChannel(
                 NotificationChannel(id(routine), info.label, info.importance).apply { description = info.description },

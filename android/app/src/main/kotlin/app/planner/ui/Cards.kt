@@ -25,12 +25,16 @@ import app.planner.plan.PlanSummary
 import app.planner.readiness.Readiness
 import app.planner.readiness.ReadinessBand
 import app.planner.readiness.ReadinessState
+import app.planner.readiness.SleepNight
+import app.planner.readiness.interruptionLabels
 import app.planner.readiness.phases
 import app.planner.sleep.HealthStatus
 import app.planner.sleep.ReadinessView
 import app.planner.ui.theme.LocalStatusColors
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 
 private fun formatDuration(minutes: Int): String = "${minutes / 60}h ${"%02d".format(minutes % 60)}m"
 
@@ -84,7 +88,14 @@ fun ReadinessCard(
             val phases = night.phases(zone).joinToString(" · ") { it.label() }
             val up = if (view?.state is ReadinessState.Final) " · up at ${timeFormat.format(night.lastEnd.atZone(zone))}" else ""
             Text(phases + up, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val breaks = night.interruptionLabels(zone)
+            Text(
+                if (breaks.isEmpty()) "No interruptions" else "Awake ${formatDuration(night.awakeMin)} in ${breaks.size}: ${breaks.joinToString(" · ")}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+        view?.recentNights?.takeIf { it.isNotEmpty() }?.let { nights -> RecentNights(nights) }
         note?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         view?.forecast?.let { f ->
             val usual = if (f.usual != null && f.usualLightsOut != null) {
@@ -97,6 +108,24 @@ fun ReadinessCard(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onRefresh) { Text("Refresh") }
             TextButton(onClick = onManualSleep) { Text("Enter sleep manually") }
+        }
+    }
+}
+
+/** The last seven nights: when he slept, when he woke, how often he was up, and the total slept. */
+@Composable
+private fun RecentNights(nights: List<SleepNight>) {
+    val zone = ZoneId.systemDefault()
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Last 7 nights", style = MaterialTheme.typography.titleSmall)
+        nights.asReversed().forEach { night ->
+            val up = night.interruptions.size
+            Text(
+                "${night.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.UK)} · ${timeFormat.format(night.lightsOut.atZone(zone))}–${timeFormat.format(night.lastEnd.atZone(zone))}" +
+                    " · slept ${formatDuration(night.asleepMin)} · " + if (up == 0) "no interruptions" else "$up awake ${formatDuration(night.awakeMin)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

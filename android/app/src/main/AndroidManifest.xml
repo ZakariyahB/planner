@@ -23,9 +23,12 @@
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
-    <!-- Routines -->
+    <!-- Check-ins and routines -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Exact alarms: the user grants SCHEDULE_EXACT_ALARM on Android 12 and 13; USE_EXACT_ALARM is granted from 13 on,
+         for apps whose core job is timed reminders (check-ins at the start and end of each planned block). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
@@ -60,7 +63,20 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Routines -->
+        <!-- Check-ins and prompts (newplan section 10) -->
+        <receiver android:name=".checkin.CheckInAlarmReceiver" android:exported="false" />
+        <receiver android:name=".checkin.CheckInActionReceiver" android:exported="false" />
+        <receiver android:name=".checkin.CheckInSystemReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Routines (sleep coaching; the ones replaced by check-ins and prompts are no longer scheduled) -->
         <receiver android:name=".routines.RoutineAlarmReceiver" android:exported="false" />
         <receiver android:name=".routines.RoutineActionReceiver" android:exported="false" />
         <receiver android:name=".routines.BootReceiver" android:exported="false">
