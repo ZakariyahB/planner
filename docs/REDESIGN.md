@@ -599,9 +599,27 @@ Open, to be settled by `newplan.md`:
 
 ## 7. Reconciliation
 
-Filled in by the master agent after reading `newplan.md`: list each point where it changes this plan, and the resulting change to the contracts or streams.
+Done 31 October 2026 against `newplan.md` ("Planner v2"), with the owner's answers. Where they differ, `newplan.md` wins. The operative plan for the streams is now `docs/redesign/STREAMS.md`; sections 3 and 4 above are kept for history.
 
-(Not yet done.)
+| Topic | REDESIGN.md said | Now (newplan.md + owner) | Effect |
+|---|---|---|---|
+| Source of truth for placement | App timeline, writes to a "Planner" calendar | Google Calendar. No separate Planner calendar: blocks go into the category calendars (Academic, Lectures, Quran and Arabic, Commute, Society, Fitness, Personal), resolved by trimmed name | Stream B routes by category; old Planner-calendar sync retired |
+| Autonomy | Apply with Undo, ask only before drop | **Every calendar write needs approval** (ChangeSet card, approve all or per change). Undo of the last applied set stays | Trust ladder dropped; `ApprovedChangeSet` only from `ApprovalGate`; `:assistant` cannot reach `CalendarWriter` |
+| Unified item | `Item` with Fixed/Window/Due/Open | `Task` (local backlog) + `FixedEvent` (read from calendars) + `Placement`; constraints as fields (`earliestStart`, `afterPrayer`, `deadline`, `splittable`) | New `:engine` module, contracts in `engine/.../model` |
+| Lectures | Watch items, available slot end + 1h | Template all-day events such as `Lecture - OS (2h, from 15:00)` parsed into tasks with `earliestStart` | Title parser (newplan 6) in Stream B; recording delay kept as a setting |
+| Splitting | Allowed | Allowed unless `splittable=false`, min chunk 45, prefer unsplit, chunks titled `(1/2)` | Stream A |
+| Prayer | Buffers around anchors | 15-min slot; tasks never start in one; +15 per anchor covered, to a fixed point; weekend interpolation; no Friday Dhuhr; absorbed inside fixed events. Dhuhr offset 0 (owner) | Stream A, golden tests 13.1 |
+| Work window | Daily cap 360 min | Tiers: 0 wake-Maghrib, 1 Maghrib-18:00 rest, 2 18:00-20:00, 3 20:00-22:00 flagged, never after 22:00 (owner confirmed) | Stream A |
+| Overflow | Catch-up day | Sunday catch-up block, never stacked onto the next day | Stream A |
+| UI | Companion home + timeline with drag + Reflect | No custom calendar grid: Today list, approval cards, Backlog, Week overview (list), Chat, Settings, "Open in Google Calendar". Reflect kept for sleep and social (carry-over) | Stream D; timeline and widget dropped |
+| AI | Plan/Repair modes with apply tools | Messages API with tools: read tools, `find_events`, `propose_changes`, `replan`; **no apply tool**; never computes times | Stream C |
+| API key | Worker | **Keep the Worker** (owner) rather than a phone-stored key | Stream C extends the Worker |
+| Notifications | Three routines via WorkManager | Start and end check-ins with actions, exact alarms, merge rules, quiet in prayer slots; plus Sunday deadline prompt, weekly Fajr prompt, night-before review, social nudges | Stream E |
+| Sleep | Full episode engine | Kept as a side stream (owner); feeds coaching and the AI context, never the scheduler | Stream G |
+| Data | One Room migration 6 to 7 | v2 data in a **new Room database** (`planner_v2.db`, version 1) so the old one is untouched and no migration can lose data | Stream F |
+| All-day template events | (n/a) | Scheduling edits the same event into the first timed chunk; further chunks are added (owner) | `Settings.convertAllDayOnSchedule = true` |
+| Week tags | (n/a) | Keep "w-1" style tags on rollover (owner) | `Settings.stripWeekTagsOnRollover = false` |
+| Merge | PR to main | Integrate on `ccr-b39c58a2-agf7ue`, then push straight to `main`; the owner runs it in Android Studio | Master |
 
 ## Appendix A: what exists today (for orientation)
 
