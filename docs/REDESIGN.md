@@ -115,19 +115,24 @@ The AI is not a separate sheet: the command bar sits at the bottom of every surf
 
 Also: a home-screen widget and a lock-screen notification showing the current item. You check in, you do not manage: the target is a glance and at most one reply a day.
 
-## 4. Phases
+## 4. Implementation streams
 
-| # | Phase | Delivers | Done when |
-|---|---|---|---|
-| 0 | **Instrument** (a few days, alongside 1) | A local, private event log (screen opened, AI change applied/undone, crash) and a one-tap "this was wrong" button that attaches the screen state. Small on purpose: the verdict on today's app is already clear. | You can see from the log whether a check-in happened each day and what you undid. |
-| 1 | **Sleep model** (1–2 weeks) | Episodes, sleep day, source preference, merge/split/edit, new readiness inputs, fixtures from your real nights | For your last 14 nights the app's totals are within 10 minutes of Fitbit's own, including split and late second sleeps; Reflect shows episodes. |
-| 2 | **Unified items** (2 weeks) | The `Item` model and migration, calendar rules, one list and one timeline, tick-able fixed events, scheduler works on items | No screen or tool distinguishes the source of an item except by badge; every calendar item can be ticked, edited, moved or skipped; no duplicate items after repeated syncs; backup restore round-trips. |
-| 3 | **AI companion** (2–3 weeks) | Morning briefing, Plan and Repair modes, new tools, trust ladder, voice command bar, proactive triggers with action notifications, profile and learning loop, evaluation harness | The harness passes; in daily use at least 70% of proposed plans are accepted with at most one edit, and Undo is used on fewer than 1 in 5 applied changes. |
-| 4 | **Three surfaces and cull** (2 weeks) | Companion / Day / Reflect, widget, trimmed settings and notifications, onboarding for a fresh install | The app opens on the briefing; first run to first plan takes under 3 minutes; the six notifications are down to three. |
+Instead of sequential phases, the work is split into seven independent implementations that run in parallel, one agent each, and a master agent merges them. They share only the interfaces in `docs/redesign/contracts.md`, and each builds against fakes of the others. Start with [redesign/README.md](redesign/README.md).
 
-Order rationale: sleep is isolated, is the thing most visibly wrong, and unblocks readiness. Items must come before the AI and the new screens, because both are built on it. Phase 0 runs alongside Phase 1.
+| Stream | Implements | Spec |
+|---|---|---|
+| 0. Contracts (master) | Shared types, one database migration for every new table, empty Hilt modules, fakes | [redesign/README.md](redesign/README.md), [contracts.md](redesign/contracts.md) |
+| A. Sleep engine | Episodes, wake-anchored sleep day, Fitbit-only source, readiness, edit tools, sleep timeline | [a-sleep.md](redesign/a-sleep.md) |
+| B. Items and scheduler | The unified `Item`, scheduler over items, split, plan API, undo | [b-items.md](redesign/b-items.md) |
+| C. AI companion | Plan, Repair, Coach modes, tools, autonomy, briefing, profile and learning, evaluation harness | [c-companion.md](redesign/c-companion.md) |
+| D. Surfaces | Companion home, Day, Reflect, command bar, voice, widget, trimmed settings | [d-surfaces.md](redesign/d-surfaces.md) |
+| E. Runtime | Triggers, action notifications, three routines, local event log | [e-runtime.md](redesign/e-runtime.md) |
+| F. Calendar sources | Per-calendar rules, lecture watch items, importer, write-back, social usage | [f-calendar.md](redesign/f-calendar.md) |
+| G. Data and CI | Migration, backup v2, CI checks, ownership enforcement | [g-data.md](redesign/g-data.md) |
 
-Because the companion is the point, a thin slice of Phase 3 can ship early: after Phase 1, a morning briefing and the "apply with Undo" default on top of today's scheduler give a first visible win while Phase 2 is built. This is the one deliberate reordering, and it is optional.
+Merge order: G, then A and F, then B, then E and C, then D, then the integration checklist and one pull request to `main`. File ownership (no two streams edit the same file), the contract-change process and the commit rules (every commit from the owner, no AI credit) are in the README.
+
+The early win from the companion direction is Stream C's briefing, which can be demonstrated against fakes before the others land.
 
 ## 5. Risks
 
