@@ -1,5 +1,7 @@
 # Day Planner v2: build plan (for Claude Code)
 
+> **Superseded by v2.** This is the original (v1) build plan, kept for history. The current spec is [redesign/newplan.md](redesign/newplan.md) and the build plan is [redesign/STREAMS.md](redesign/STREAMS.md).
+
 ## Context
 
 ZB is a 2nd-year Imperial Computing student with a full week: online lectures and tutorials (recordings come out about 1h after each live slot), coursework (PintOS, Prob & Stats, OS, ADA, SDE), Arabic study, prayer-anchored routines, BoL, Halaqa, Sh Anass and society work.

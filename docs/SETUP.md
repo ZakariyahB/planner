@@ -140,38 +140,39 @@ Pick your phone in the device menu and press **Run**. The first build downloads 
 
 ### What to allow, and where
 
-The Today screen opens with a **Get set up** card that lists each of these with a button, and ticks them off as you go. It disappears when they are all done, and comes back each Monday until you have set that week's Fajr time.
-
-| Step | Why | How |
+| Step | Why | Where |
 |---|---|---|
-| Connect Google Calendar | Your classes and commitments to plan around | Tap **Connect**, choose your account, approve. If you see "Google hasn't verified this app", choose Advanced, then continue. |
-| Allow Health Connect | Reads your sleep | Tap **Allow**, switch on sleep. |
-| Set this week's Fajr | Anchors prayer-based tasks. A rough time is enough | Tap **Set**. |
-| Allow notifications | Plan ready, lights-out, work stops | Tap **Allow**. If Android won't ask again, it opens the app's notification settings instead. |
-| Allow exact alarms | Reminders arrive on time, not minutes late | Opens **Alarms and reminders**: switch Planner on. |
-| Allow usage access | Counts your social-media minutes, including the past week from Android's usage history | Opens **Usage access**: choose Planner and switch it on. Android has no pop-up for this one. |
+| Sign in to Google | Read your calendars, and write the changes you approve | Settings → Google → **Sign in**. If you see "Google hasn't verified this app", choose Advanced, then continue. |
+| Allow notifications | Start and end check-ins, prompts | The check-in setup card on Today, or Settings → Check-ins |
+| Allow exact alarms | Check-ins on the minute, not minutes late | Same card: opens **Alarms and reminders** |
+| Battery: Unrestricted | Battery savers delay alarms and background syncs | Same card: opens the battery setting |
+| Allow Health Connect | Sleep | Settings → Sleep |
+| Allow usage access | Social-media minutes | Settings → Social time (Android has no pop-up for this one) |
+| Sign in for the assistant | Proves to the Worker that it is you | Ask, on first use, with the account named in `ALLOWED_EMAIL` |
 
-Two more things worth doing once:
-
-- **Battery.** In **Settings, Apps, Planner, Battery**, choose **Unrestricted** (some phones call it "Don't optimise"). Battery savers can delay exact alarms or kill the background jobs that refresh sleep and social time.
-- **Sign in for the assistant.** **Settings, Assistant, Sign in for the assistant**, and pick the account named in `ALLOWED_EMAIL`.
-
-Finally, in **Settings, Calendars**, tick the calendars that hold things you must attend. Untick any you only watch (for example recorded lectures). The Planner calendar is created for you and is never treated as a commitment.
+Then open **Backlog → Import from calendar** to read your weekly template.
 
 ## Checking it all works
 
-1. Today shows readiness (or "waiting for sleep data"), the Get set up card ticking off, and your fixed events for the day.
-2. In the Calendar tab you see your commitments and, after **Replan**, task blocks. Open Google Calendar on the phone: a calendar called **Planner** holds the same blocks.
-3. In Ask, send "What's on today?". A reply means the Worker, your Google sign-in and the key all work.
-4. **Settings, Backup and restore, Save to a file** writes a first backup. See [MANUAL.md](MANUAL.md) for what it contains.
+Do this first against a **test calendar** (SETUP step 2), then against your real ones.
 
-If something is off, MANUAL.md ends with a troubleshooting section keyed to the messages the app shows.
+1. Today shows your day between the prayers, with fixed events and any timed blocks. "Synced" shows a time.
+2. Backlog → Import from calendar: numbered all-day events become tasks; anything unreadable is under Needs a look.
+3. Plan today (or Plan on a task): an approval card appears and **Google Calendar is unchanged**. Approve: the report says Verified, and in Google Calendar the all-day item is now the timed block, with a description such as "Task: 3h. Includes 15 min for Dhuhr."
+4. Undo from the snackbar: Google Calendar is back as it was.
+5. Edit a proposed event in Google Calendar before approving: the card reports Stale and writes nothing.
+6. In Ask, send "add 2h internship apps Sunday": a Review card appears and nothing changes until you approve.
+7. Wait for a block's start: the check-in arrives with Start / Snooze 10 / Skip.
+8. On a device or emulator, `cd android && ./gradlew :app:connectedDebugAndroidTest` checks the on-phone database against the same rules as the tests.
+
+The full hand-test lists per area are in `docs/redesign/notes/` (B: calendar and approval, C: assistant, D: screens, E: check-ins, F: data, G: sleep). MANUAL.md ends with troubleshooting keyed to the messages the app shows.
 
 ## Commands
 
 | What | Command |
 |---|---|
 | Worker tests | `cd worker && npm ci && npm run typecheck && npm test` |
-| Scheduler tests (no Android SDK needed) | `cd android && ./gradlew :core:scheduler:test -PcoreOnly` |
-| App build and all tests | `cd android && ./gradlew :core:scheduler:test :app:assembleDebug :app:testDebugUnitTest` |
+| Pure-Kotlin tests without the Android SDK | `android/scripts/jvm-test.sh` (or name modules: `core engine calendar assistant`) |
+| App build and all tests | `cd android && ./gradlew :core:scheduler:test :engine:test :calendar:test :assistant:test :app:assembleDebug :app:testDebugUnitTest` |
+| On-device database tests | `cd android && ./gradlew :app:connectedDebugAndroidTest` |
 | Install the smooth (release) build on your phone | `cd android && ./gradlew :app:installRelease` (use this for everyday use; Run in Android Studio installs the slower debug build) |

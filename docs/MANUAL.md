@@ -2,209 +2,189 @@
 
 How the app works day to day. To install it, see [SETUP.md](SETUP.md).
 
-Everything you enter stays on your phone. The only thing that leaves it is what you send to the assistant, and that is summaries (for example "slept 00:32 to 05:28 and 07:04 to 08:41"), never raw sleep data.
+Planner plans your tasks into time, writes them to Google Calendar once you approve, and checks in at the start and end of each block. Google Calendar is where everything lives; the app shows a simple list and opens Google Calendar when you want the grid.
 
-## The daily loop
+Three rules hold everywhere:
 
-**Morning.** When you unlock your phone after waking, you get the morning brief and your readiness score for the day. If your first sleep ended near Fajr, you may first get a "back to bed" notice saying how much sleep you have had and when to set the alarm.
+1. **Nothing is written to Google Calendar without your approval.** Every change, whoever proposed it (you, the assistant, a replan, a notification, next week's template), arrives as an approval card first.
+2. **The app works out the times; the assistant does not.** The assistant only turns what you say into a request. The planner computes every time from your prayer times, calendar and settings.
+3. **Your own edits in Google Calendar win.** If you drag a block in Google Calendar, the app takes it as final and only offers a replan if something now clashes.
 
-**Today tab.** The date, a compact setup prompt while needed, your readiness summary, the next-task card, then the day's task list. All-day calendar events are tasks too: each gets a time in your day like any other task (see **All-day calendar items** below), and you tick it off like any other. The list follows actual scheduled dates, including work whose deadline is later. Tasks without a placement appear as **Any time**. Tick a task when it is done, tap it to edit, or tap **Log** to record progress. Long press remains a shortcut. Tap readiness for sleep details, refresh or manual entry. Use **See plan** for the calendar; Today stays a task list.
+Everything else stays on your phone. The only thing that leaves it is what you send to the assistant, plus summaries of your week.
 
-**During the day.** If something overruns, open **AI chat** above the bottom navigation ("Halaqa ran over by an hour") or drag the blocks yourself in **Plan**. Use **Adjust** in Plan to fit flexible work again. Closing chat returns to the same screen and scroll position.
+## The day, prayer by prayer
 
-**Evening.** At 21:00 (22:00 on a packed day) you get "Work stops": what got done and what moved. At 21:30 you get your social-time summary. At 23:30 you get **tomorrow's plan** to approve, counting everything on the day: timed tasks, all-day calendar items, calendar events at fixed times, and tasks still waiting for a time. Switch off anything you don't want, then **Approve and sleep**, or **Ask Claude** to change it. At 23:45, thirty minutes before lights-out, you get a warning.
+The **Today** screen lays the day out in the stretches between prayers: before Dhuhr, Dhuhr to Asr, Asr to Maghrib, Maghrib to Isha, and after Isha. The heading names the stretch you are in and how long until the next prayer.
 
-All of these times follow your day rules (Settings, Day rules). The numbers above are the defaults.
+- The block happening now is the large teal card, with **Done** and **Need 30 more**. Tap any other block for Start, Done, Need 30 more, Stop here, Skip and Open in Google Calendar.
+- **Done** asks how focused you were (1 to 5). This, and the start and end times, are your own log: it is not a calendar edit and needs no approval. Over time it tells the planner and the assistant how long things really take you.
+- **Need 30 more** and **Stop here** ask the planner to rework the rest of the day. You get an approval card; nothing moves until you approve.
+- Template items for today that have no time yet show **Plan today**.
+- Banners appear only when needed: changes waiting for approval, "Sign in again" when Google access expired, and the one-time check-in setup.
+- At the bottom: **Open in Google Calendar**, when the app last synced, and **Sync now**.
 
-## Readiness
+### How prayer time is counted
 
-Readiness is a score out of 100 for how much load the day should carry. It is worked out from last night's sleep, not from how you feel:
+- Each prayer is a 15-minute slot starting at its begin time from your **Prayer times** calendar. No block starts inside a slot.
+- A block that runs across a prayer gets 15 minutes added at its end, and its description says so ("Includes 15 min for Dhuhr"). If the extra 15 minutes push it over another prayer, another 15 is added.
+- A prayer exactly at a block's end does not count.
+- Friday has no Dhuhr slot (Jumu'ah is its own event). Saturday and Sunday times are estimated from the weekdays and marked with "~".
+- A prayer that falls inside a fixed event (Asr during Halaqa) adds nothing.
+- Settings has a per-prayer offset if you want a slot later than the begin time (default 0).
 
-| Part | Weight | What it looks at |
-|---|---|---|
-| Last night | 40 | Hours asleep against a 7-hour need |
-| Sleep debt | 25 | How short you have been over the last 7 nights |
-| Lights-out | 20 | How late you went to bed against 00:15 |
-| Yesterday | 15 | How much of what was planned got done |
+### How late it plans
 
-The score sets the load:
-
-- **70 or more (green):** the full plan.
-- **40 to 69 (amber):** about 20% lighter. This is proposed, not applied: tap **Lighten today** on Today to accept, and later replans keep it.
-- **Under 40 (red):** only what is due within 48 hours.
-
-Three things to know:
-
-- **Provisional, then final.** After your first sleep block ends, you see "Readiness so far" and back-to-bed advice. The final score appears once your last sleep has ended and you have unlocked the phone after 07:00 (or at 10:00 at the latest). It is fixed for the day: if things overrun, the plan changes, the score does not.
-- **Sleep details.** Tap readiness on Today to see last night as you slept it: when you went to bed, when you woke, each time you were awake in between (the interruptions), and the total asleep, which is the time in bed minus the time awake. The last seven nights are listed below it, and the assistant reads the same figures. **Refresh** reads Health Connect again; if that changes last night's total by 10 minutes or more, today's score is worked out again from the corrected sleep.
-- **Waiting for sleep data.** Fitbit can take a while to reach Health Connect. Until it does, Planner says it is waiting and does not score a half-recorded night. If a night never arrives, tap **Enter sleep manually** and give your lights-out and wake times.
-- **Forecast.** At night, tap readiness on Today to see the score you would get tomorrow if lights-out is 00:15, and the one at your usual time.
-
-## The Plan tab
-
-Choose **Day**, **3 days** or **Week** at the top; **Adjust** beside them replans. The arrows move by that much; tap the month to choose a date or return to **Today**. In day view, the week strip selects a day directly. A blue line marks now.
-
-You see fixed commitments on neutral surfaces, prayer times as dashed lines, grey shading where you were asleep, and flexible task blocks in pale blue. Completed task blocks are neutral. Overlapping commitments share columns instead of covering each other. **All day** lists every all-day calendar event above the hourly grid for context, while the task it became sits in the grid at the time the planner chose; **Any time** lists relevant tasks without a scheduled block. All-day events spanning dates appear on each covered date. Tap an event or task for details. Three-day and week views scroll sideways together with their headers when more space is needed.
-
-- **Move a block:** drag it. It snaps to 15 minutes.
-- **Change its length:** drag the small handle at its bottom edge.
-- **Details:** tap it for **Mark done**, **Lock here** or **Remove from plan**.
-
-Every move is checked against your rules first. If it isn't allowed (for example it lands on a prayer or after work stops) the block snaps back and a message says why. After a move that works, an **Undo** appears at the bottom of the screen.
-
-**Locking.** A locked block (marked with a padlock) stays exactly where it is, and the planner plans everything else around it. Locked blocks can't be dragged: unlock first. Use it for things you have agreed with someone else.
-
-**Planner calendar.** Planned blocks are copied to a Google calendar called **Planner**. If you change a time there, the app reads it back into the plan. Your other calendars are only read, never changed.
-
-If a stretch of days has nothing planned, the tab says so and offers **Replan**.
-
-## All-day calendar items
-
-An all-day event on one of your selected calendars becomes a task for each day it covers, for the next seven days, and the planner puts it in a free stretch of the day like any other task. Unfinished ones are kept for two days and then let go; one you drop, or whose event you delete, doesn't come back.
-
-Say how long it takes, and when, in brackets in the title:
-
-| Title | What you get |
+| Time | What it is |
 |---|---|
-| `PintOS (3h)` | a 3-hour task called PintOS |
-| `OS worksheet (90m)` | 90 minutes |
-| `Lecture - SDE (1h, from 14:00)` | one hour, placed exactly at 14:00 |
-| `Workshop (10:00-11:30)` | 90 minutes at 10:00 |
-| `Eid` | one hour, placed wherever there is room |
+| Wake (09:30) to Maghrib | Normal work |
+| Maghrib to 18:00 | Rest time, used only if the day cannot fit otherwise ("uses rest time") |
+| 18:00 to 20:00 | Extended day, shown in amber |
+| 20:00 to 22:00 | Over the soft limit, only if needed, and flagged on the approval card |
+| After 22:00 | Never |
 
-Brackets that say anything else, such as `(optional)`, stay in the title. Edit the task to change its length or time; the calendar event is never changed. Ask the assistant to "fit my all-day items into this week" and it reads the free time of each day and sets a time for each one.
+Work that does not fit goes to the **Sunday catch-up** block. It is never stacked onto the next day unless you approve that. All of these times are in Settings.
 
-## Tasks
+## Your weekly template
 
-**Adding.** Tap **Add task** on Today or Tasks. Enter a title and an estimate (5 minutes to 12 hours). Optional extras:
+Your weekly template lives in Google Calendar as numbered all-day events in the category calendars, for example:
 
-- **Days.** Pick any days of this week or next week and each one becomes its own task, due that day. Good for "OS worksheet, Monday and Wednesday".
-- **Due date.** The task is due at the end of that day.
-- **Do it at.** Choose a start time and the planner places the task there. If it can't (it clashes with something fixed, or lands after work stops) it plans the task at the next free time instead and tells you why on Today.
-- **Priority** and **Module.**
-- **Anchor.** Tie it to a prayer, with minutes before or after, for example "Asr plus 15". The task isn't planned earlier than that.
+- `1. PintOS (3h)`
+- `2. Lecture - OS (2h, from 15:00)`: a lecture recording available from 15:00
+- `3. Arabic hw (1h, after Asr)`
+- `4. Lecture - SDE (1h, Fri's)`
 
-A task is always one block. It is never split. If it doesn't fit before it is due, it goes to the next catch-up day with room. Every day is a catch-up day to begin with; in **Settings, Day rules** you can pick only some, Sunday for example. Today tells you when something moved, or "Doesn't fit this week".
+Inside the brackets: a duration (`3h`, `1h30`, `45m`, `1.5h`), then optional notes separated by commas: `from 15:00` (also `9:30`, `14.30`, `3pm`), `after Asr` (any prayer), a weekday, `no split`, `due Fri`.
 
-**Tick, edit, drop.** The checkbox marks it done (and unticks it). Tap the task to edit, or to **Drop** it, which takes it off the plan.
+**Backlog → Import from calendar** reads this week's and next week's template events into tasks for those days. Importing again updates them rather than duplicating. A numbered title the app cannot read goes to **Needs a look** with the reason. **Fix** opens it in the editor. Unnumbered all-day events (birthdays, holidays) are ignored.
 
-**Log progress.** Press and hold a task on Today or Tasks:
+When a template task is scheduled, its all-day event is **turned into the timed block**: same event, same calendar, no duplicate. If the task is split, the extra parts are added as `PintOS (2/2)` and so on. Tasks split only to fit around fixed events or the end of the day, and never into parts shorter than 45 minutes.
 
-- **Done** finishes it.
-- **Partly** takes off the minutes you worked and keeps the rest (never less than 5 minutes). The rest is planned again at the next free time.
-- **Drop** takes it off the plan.
+## Approving changes
 
-Choose 15, 30, 45 or 60 minutes, or **Other** to type a number. A line under the buttons says what saving will do, for example "50 min left. It will be planned again at the next free time." What you log feeds the planned-versus-done chart in Insights and tomorrow's readiness.
+Every proposal arrives as an approval card. A single change opens as a sheet at the bottom; several open as a list with a checkbox each.
 
-**Weekly template.** In Settings, Weekly template, list the things that repeat, such as a lecture catch-up every Tuesday, with their days, estimate and optional time or anchor. **Use weekly template** on an empty Today, and **Generate this week** or **Next week** in the template page, create that week's tasks. Running it twice never duplicates anything.
+Each card shows:
+
+- what kind of change it is and in which calendar ("MOVE · ACADEMIC");
+- the exact event it touches;
+- the time before and after;
+- the planner's note ("Includes 15 min for Isha");
+- flags, when they apply:
+  - it touches a fixed event;
+  - someone else organises the event (for example the Arabic lesson your teacher set);
+  - it uses rest time, an extended day, or goes over the soft limit;
+  - it uses an estimated weekend prayer time;
+  - it misses a deadline.
+
+**Repeating events** ask whether to change this one only or the whole series; it starts on "this one only". "This and following" is shown but not available yet.
+
+Approve all, or untick what you don't want. After approving, the report says what happened to each change:
+
+- **Verified:** written, then read back from Google and checked.
+- **Stale:** the event changed in Google Calendar after the card was made, so nothing was written. A fresh proposal ("Check again") appears.
+- **Failed:** Google did not end up with what you approved. The reason is given.
+
+**Undo** (on the report and in the snackbar) reverses the last approved set: removed events come back, edited ones go back to how they were, added ones are deleted.
+
+## Week
+
+**Week** shows each day as five bars, one per stretch between prayers. Teal is work, amber is extended, grey is fixed events. Each row also shows the Dhuhr time ("~" when estimated, "Jumu'ah" on Friday) and when the day ends, in amber if that is after 18:00. Tap a day for its blocks and flags. The arrows change week.
+
+**Next week from your template** copies the template into next week. It is not a blind copy:
+
+- It shifts everything by seven days and re-times it to next week's prayer times.
+- It plans around whatever is already on next week's calendar.
+- If a regular event the template relied on is missing (Halaqa, Jumu'ah prep), it keeps that gap open and says so.
+- Week tags like "w-1" are kept unless you change that in Settings.
+
+It all arrives as one approval list.
+
+## Backlog
+
+**Backlog** holds tasks with no time yet: title, duration, calendar and constraints (day, from a time, after a prayer, deadline, one block only, priority). Adding or editing a task is local and needs no approval. **Plan** proposes a time and opens the approval. New tasks are routed to a calendar by the category rules (worksheets and coursework to Academic, lectures and tutorials to Lectures, Quran and Arabic to Quran and Arabic, and so on; anything else to Personal).
 
 ## Talking to the assistant
 
-Tap **AI chat** above the bottom navigation on any screen. Type, or tap **Mic** and speak: your words appear in the box for you to read and fix before you send. Close the sheet to return to where you were. If speech recognition works better offline, install an offline pack in your phone's language settings.
+**Ask** is the in-app Claude. Say what changed, in plain words:
 
-Things you can say:
+- "Halaqa ran over by 1h"
+- "remove Quran class": it finds the exact event, and if there are two it asks which
+- "push tomorrow's lectures to Thursday"
+- "add 2h internship apps Sunday"
+- "copy template into next week"
 
-- "Halaqa ran over by an hour."
-- "Add PintOS 3 hours, due Friday."
-- "Interview Thursday 14:00 to 15:00." (Becomes a locked commitment, copied to the Planner calendar.)
-- "Plan my evening."
-- "Fit my all-day items into the week." (It reads each day's free time and sets a time for each item; moving one to another day asks you first.)
-- "I did 40 minutes of the OS worksheet." (Logs progress.)
-- "Why am I so tired lately?" (It looks at your actual sleep and workload.)
-- "Undo that."
+Every request ends in an approval card under the reply (**Review**), never in a change. The assistant can read your week, tasks and prayer times, and it can propose. It cannot write: the app is built so that the assistant's code cannot reach the calendar writer. It can also talk through workload and sleep.
 
-Small chips under a reply show what it looked at or changed, for example "Looked at your day" or "Applied a change".
+**Cost.** Requests go through your Worker, which holds the key and stops at the monthly cap. When the cap is reached the assistant pauses until next month. Planning, approvals and check-ins keep working.
 
-**What applies by itself, and what asks you first.** The assistant never writes times into the plan directly. It proposes a change and the planner checks it against your rules first.
+## Check-ins and prompts
 
-| The change | What happens |
-|---|---|
-| Moves things within the same day by an hour or less, and drops nothing | Applied at once, with **Undo** |
-| Drops a task, moves it to another day, shifts something by more than an hour, or cuts the day's load | Shown as a card marked **Needs your OK**: **Approve**, **Change** or **Dismiss** |
-| Breaks a rule | Cannot be approved; the card says which rule |
+Check-ins are notifications with buttons, for the app's task blocks only. Classes and other fixed events never ping.
 
-Everything it changes, and everything you change, is listed in **Settings, Change history**, each with **Undo**.
+| When | Notification | Buttons |
+|---|---|---|
+| Block start | "Lecture - OS, 18:00" | Start · Snooze 10 · Skip |
+| Block end | "PintOS done?" | Done · Need 30 more · Stop here |
+| Back-to-back blocks | One "Next up" ping instead of an end and a start | Done, start next · Need 30 more · Stop here |
+| A block spans a prayer | "Dhuhr break, 15 min" | none |
 
-It coaches on sleep and on stress or workload only. It is not medical advice: for anything persistent or physical, see a GP.
+- Blocks under 45 minutes get a start ping only.
+- A ping that would land in a prayer slot waits until the slot ends.
+- Nothing pings after 22:00.
+- A block you already logged in the app does not ping again.
+- **Need 30 more** and **Stop here** give you a "Review change" notification that opens the approval.
 
-**Cost.** The assistant costs a little each time you use it. Settings, Assistant shows this month's spend against the cap. When the cap is reached it pauses until next month; planning, ticking tasks and the calendar all keep working.
+**Prompts** use a quieter channel:
 
-## Social-media time
+- **Night-before review**, 21:30: tomorrow's blocks at a glance and anything not planned yet.
+- **Sunday 19:00**: "Any deadlines coming up?" (opens Ask).
+- **Sunday 12:00**: "Fajr this week?", with a quick reply. A rough time is enough; it is used for sleep and wake advice (about 8 hours after Fajr).
+- **Social time**: nudges at 50%, 80% and 100% of your budget (2h on weekdays, 3h at weekends to start with), and a 21:30 summary. Nothing is ever blocked.
 
-Planner counts how long your social apps are open and nudges you. It never blocks anything. The minutes come from Android's own usage records, the same ones Samsung's Digital Wellbeing is built on, so Planner does not time anything itself; time between an app's screens is not split, and the screen going off ends a session.
+Every rule and time above is a setting.
 
-1. Turn on **usage access** for Planner (Get set up on Today walks you to the right screen). Planner then also reads the past week from your phone's own usage history, so Reflect isn't empty at first.
-2. In **Settings, Social media**, choose which apps count (Instagram, TikTok, Snapchat, X, Reddit, Facebook and Threads to begin with; you can add others) and set the daily budget: 2 hours on weekdays and 3 on weekends to begin with.
-3. Reflect shows today's meter alongside the weekly patterns. You get a notification at 50%, 80% and 100% of the budget, and a summary at 21:30. Each can be switched off.
+## Sleep and readiness
 
-## The Sunday review
+Sleep comes from Fitbit through Health Connect. Fitbit's records are trusted. Another app's records are used only for a day Fitbit has none, and two sources are never added together.
 
-On Sunday at 19:00 you get a notification, and a card on Today that stays until you open it. The review has five steps, and each can be skipped:
+- **Sleep day.** Every stretch of sleep counts, however short and whenever it starts. A night broken by Fajr, a second sleep that starts late morning, and a nap all belong to the same sleep day, which is built around your main wake-up. You see the total, the longest block (core), the rest (extra) and each time you were awake in between.
+- **Readiness** scores your sleep over the last 24 and 72 hours against your sleep need (7 hours to start with; set it in Settings), plus your recent sleep debt, how late lights-out was and how much of yesterday got done. It becomes final once another sleep is unlikely: after a few hours awake, or once you are past your usual wake-up. It no longer goes by a fixed clock time. Until then it says "so far", or "waiting for sleep data".
+- Readiness is advice for you and the assistant. It never changes the plan by itself.
 
-1. How the week went: planned against done, and what is carried over.
-2. Upcoming deadlines for the next two weeks: add any that aren't on your list.
-3. This week's Fajr time. A rough time is enough.
-4. The weekly template, with a button to edit it.
-5. **Generate and plan** for next week.
-
-If you skip it, next week is still generated from your template on Monday, using the deadlines already on your list.
-
-Fajr is asked once a week because it moves. Saturday uses Friday's prayer times and Sunday uses Monday's.
-
-## Insights
-
-The **Reflect** tab shows the last seven days: planned against done work, sleep as a timeline, lights-out against 00:15, social time against budget, and a few plain sentences summing up the week. It also shows today's social-time meter and a shortcut to your weekly review. It fills in over the first few days.
+**Reflect** (from Settings or the bottom of Week) shows the last week: planned against done, sleep, lights-out and social time.
 
 ## Settings
 
-| Page | What it holds |
+| Group | What |
 |---|---|
-| Day rules | Wake, work-stops, wind-down and lights-out times; buffers; the size of a packed day; the daily work cap; catch-up days and the weekly catch-up allowance |
-| Weekly template | The things that repeat |
-| Calendars | Connect Google Calendar, sync now, choose which calendars supply commitments |
-| Sleep and Health Connect | Permission, sync, this week's Fajr |
-| Social media | Apps, budget, nudges |
-| Notifications | A switch for each routine, and **Send now** to test one |
-| Appearance | Light, dark, or match your phone |
-| Assistant | Sign in, this month's spend |
-| Change history | Every change, with Undo |
-| Backup and restore | See below |
-
-Changes to day rules apply to the next plan. Blocks you have locked, or pinned to a time, stay where they are.
+| Google | Sign-in status, Sign in / Sign in again, Sync now |
+| Check-ins | Notifications, exact alarms, battery (one-time setup) and every check-in rule |
+| Your day | Wake, normal end, extended end, hard cap; prayer slot length and per-prayer offsets; smallest chunk; recording delay; catch-up day |
+| Calendars | Which category calendars the app may write to (with approval) |
+| Template | Turn all-day items into the timed block; keep or strip week tags |
+| Prompts | Night-before review, Sunday deadlines, Fajr prompt day and time |
+| Sleep | Sleep need; Health Connect |
+| Assistant | Model |
+| Appearance | Match my phone, light or dark |
+| More | Reflect, Social time, Backup and restore |
 
 ## Backup and restore
 
-Your data lives only on the phone, so keep a copy.
-
-**Save a copy.** Settings, Backup and restore, **Save to a file**. Pick a place (Google Drive or Downloads, say). The file is named `planner-backup-` and the date, and holds your tasks, plan, sleep, readiness, social time, progress log, change history and settings. It leaves out the cached copy of your calendar, which is downloaded again, and the assistant conversation unless you switch on **Include the assistant conversation**.
-
-**Restore.** **Choose a file**, then check what the card says: when the backup was made and what is in it. **Replace** swaps what is on the phone for what is in the file, and cannot be undone. Only the parts the file contains are replaced. A file that isn't a Planner backup, or is damaged, is refused and changes nothing. After a restore, the plan is rebuilt.
-
-A restore does not carry permissions or your Google connection. On a new phone, install the app, restore, then go through **Get set up** again.
+**Settings → Backup and restore** saves and restores the older app data (sleep, readiness, social time, settings) as before. Tasks, approvals and the check-in log for v2 live in a separate database on the phone (`planner_v2.db`). Your calendar is in Google Calendar anyway, and re-importing the template rebuilds the tasks.
 
 ## Troubleshooting
 
-The app tells you what went wrong in plain words. These are the common ones.
-
 | You see | What it means and what to do |
 |---|---|
-| "Google doesn't recognise this copy of the app" | The Android client in Google Cloud has the wrong package name or SHA-1. It must be `app.planner` and the SHA-1 of the keystore this build is signed with. See SETUP.md, step 2. |
-| "Google turned down the calendar access" | Access ran out or was withdrawn. Tap **Reconnect** on Today, or **Settings, Calendars, Connect**. While the Google consent screen is in Testing this can happen about weekly. |
-| "No connection to Google Calendar" | You're offline. Your plan is unaffected. Try **Sync now** when you're back. |
-| "Your plan is saved on this phone but not in Google Calendar yet" | Copying to the Planner calendar failed; the plan on the phone is fine. The reason follows. Fix it, then press **Replan**. |
-| "The assistant isn't set up in this build" | `WORKER_URL` or `GOOGLE_WEB_CLIENT_ID` is blank in `android/local.properties`. Fill it in and rebuild. |
-| "Your sign-in has expired" | **Settings, Assistant, Sign in for the assistant.** |
-| "Monthly AI cap reached" | The cap resets next month. To raise it, change `MONTHLY_CAP_GBP` in `worker/wrangler.toml` and run `npx wrangler deploy`. |
-| "AI is busy" or "The assistant is having trouble right now" | Wait a minute or a few and send again. |
-| "Waiting for sleep data" | Open Fitbit so it syncs, check sharing to Health Connect is on, and that Planner may read sleep (Settings, Sleep). Or enter last night by hand. |
-| "Couldn't read sleep from Health Connect" | Open the Health Connect app, check Planner is allowed to read sleep, and tap **Refresh**. |
-| Reminders arrive late or not at all | Allow **exact alarms** and notifications (Get set up on Today), and set Planner's battery to **Unrestricted** in the phone's app settings. |
-| Social time stays at zero | Usage access is off, or no apps are chosen. Check Settings, Social media. |
-| "Couldn't put *a task* at 14:00: ... It was planned at the next free time" | The time you chose clashed with something. The reason is given; edit the task to choose another time. |
-| "Doesn't fit this week" | There isn't room before the deadline. Drop something, lower an estimate, or change a day rule. |
-| "That isn't a Planner backup" | The file isn't one. Choose a file named `planner-backup-...json`. |
-| "This backup was made by a newer version of Planner" | Update the app, then try again. |
-| "This backup is damaged, so nothing was changed" | Use an older copy. |
-| "Speech recognition isn't available" or "Offline speech isn't installed" | Type instead, or add an offline speech pack in the phone's language settings. |
-
-If a move you made turns out to be a mistake, **Settings, Change history** lists it with an Undo.
+| "Sign in again" on Today | Google access expired (every 7 days while the Google Cloud consent screen is in Testing). Tap it. Nothing was written meanwhile. To stop this, publish the consent screen (SETUP.md, step 2). |
+| "Google doesn't recognise this copy of the app" | The Android OAuth client needs package `app.planner` and the SHA-1 of the key this build is signed with (SETUP.md, step 2). |
+| A change shows **Stale** | The event changed in Google Calendar after the card was made. Nothing was written; review the "Check again" proposal. |
+| A change shows **Failed** | Google ended up different from what you approved. The reason is shown. Check the event in Google Calendar, then Undo or ask for a replan. |
+| "Calendar is read-only" | The event is in a calendar the app may not write to (Prayer times, or one switched off in Settings → Calendars). |
+| A template item is in **Needs a look** | The title is numbered but did not parse. Tap **Fix**, or rename it in Google Calendar (for example `3. Arabic hw (1h, after Asr)`) and import again. |
+| Weekend prayer times look slightly off | Weekends are estimated from the weekdays ("~"). Use the per-prayer offset if needed. |
+| The assistant says the model isn't allowed | The model in Settings is not one the Worker knows. Use the default, or update and redeploy the Worker. |
+| "Monthly AI cap reached" | It resets next month. To raise it, change `MONTHLY_CAP_GBP` in `worker/wrangler.toml` and run `npx wrangler deploy`. |
+| Check-ins arrive late or not at all | Allow notifications and exact alarms (the setup card on Today), and set Planner's battery to **Unrestricted**. |
+| "Waiting for sleep data" | Open Fitbit so it syncs, and check that its Health Connect sharing is on and that Planner may read sleep. |
+| Social time stays at zero | Usage access is off, or no apps are chosen (Settings → Social time). |
