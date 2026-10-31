@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Check-in notifications, rhythm direction</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&amp;family=DM+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0F4C4A}a:hover{color:#08302F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B2B2A; font-family: 'DM Sans', system-ui, sans-serif; color: #F4EFE6; display: flex; flex-direction: column; position: relative; overflow: hidden">
+  <div aria-hidden="true" style="position: absolute; right: -120px; top: -80px; width: 360px; height: 360px; border-radius: 180px; border: 1px solid rgba(244,239,230,0.08)"></div>
+  <div aria-hidden="true" style="position: absolute; right: -60px; top: -20px; width: 240px; height: 240px; border-radius: 120px; border: 1px solid rgba(244,239,230,0.08)"></div>
+
+  <div style="padding: 70px 24px 26px; display: flex; flex-direction: column; gap: 2px">
+    <span style="font-family: Fraunces, serif; font-size: 76px; line-height: 1; font-weight: 400">12:45</span>
+    <span style="font-size: 15px; color: #CFC6B6">Tuesday 3 November</span>
+  </div>
+
+  <div style="padding: 0 12px; display: flex; flex-direction: column; gap: 8px">
+    <article style="background: #F4EFE6; color: #1F1B16; border-radius: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B5F50"><span>Planner · check-in</span><span>now</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">PintOS done?</span><span style="font-size: 14px; color: #3D352B">Block ended at 12:45. Next up: Lecture - SDE at 14:00.</span></div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+        <button style="height: 44px; border-radius: 22px; border: none; background: #0F4C4A; color: #F4EFE6; font: 700 13px 'DM Sans', sans-serif">Done</button>
+        <button style="height: 44px; border-radius: 22px; border: 1px solid #C9BFAE; background: transparent; color: #1F1B16; font: 500 13px 'DM Sans', sans-serif">Need 30 more</button>
+        <button style="height: 44px; border-radius: 22px; border: 1px solid #C9BFAE; background: transparent; color: #1F1B16; font: 500 13px 'DM Sans', sans-serif">Stop here</button>
+      </div>
+    </article>
+
+    <article style="background: rgba(244,239,230,0.92); color: #1F1B16; border-radius: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B5F50"><span>Planner · after Done</span><span>now</span></div>
+      <span style="font-size: 15px; font-weight: 700">How focused were you?</span>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #C9BFAE; background: transparent; font: 600 15px 'DM Sans', sans-serif; color: #1F1B16">1</button>
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #C9BFAE; background: transparent; font: 600 15px 'DM Sans', sans-serif; color: #1F1B16">2</button>
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #C9BFAE; background: transparent; font: 600 15px 'DM Sans', sans-serif; color: #1F1B16">3</button>
+        <button style="height: 44px; border-radius: 12px; border: none; background: #0F4C4A; font: 700 15px 'DM Sans', sans-serif; color: #F4EFE6">4</button>
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #C9BFAE; background: transparent; font: 600 15px 'DM Sans', sans-serif; color: #1F1B16">5</button>
+      </div>
+    </article>
+
+    <article style="background: rgba(244,239,230,0.12); border: 1px solid rgba(244,239,230,0.18); border-radius: 22px; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #CFC6B6"><span>Planner · earlier</span><span>11:49</span></div>
+      <span style="font-size: 15px; font-weight: 700">Dhuhr break, 15 min</span>
+      <span style="font-size: 13px; color: #CFC6B6">PintOS resumes at 12:04. One ping, no start or end noise.</span>
+    </article>
+
+    <article style="background: rgba(244,239,230,0.12); border: 1px solid rgba(244,239,230,0.18); border-radius: 22px; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #CFC6B6"><span>Planner · prompt</span><span>Sun 21:30</span></div>
+      <span style="font-size: 15px; font-weight: 700">Any deadlines coming up?</span>
+      <span style="font-size: 13px; color: #CFC6B6">And roughly when is Fajr this week? I'll plan wake-up around 8h after it.</span>
+    </article>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

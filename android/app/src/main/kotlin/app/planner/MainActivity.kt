@@ -17,7 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.data.ThemeRepository
 import app.planner.routines.RoutineLaunch
+import app.planner.social.SocialScheduler
+import app.planner.social.UsageAccess
 import app.planner.ui.PlannerRoot
+import app.planner.ui.shell.UiLaunch
 import app.planner.ui.theme.PlannerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -27,11 +30,16 @@ import kotlinx.coroutines.runBlocking
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var themeRepository: ThemeRepository
+    @Inject lateinit var usageAccess: UsageAccess
+    @Inject lateinit var socialScheduler: SocialScheduler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         RoutineLaunch.handle(intent)
+        UiLaunch.handle(intent)
+        // The social-time worker keeps running even if the social screen is never opened (an existing schedule is kept).
+        if (usageAccess.isGranted()) socialScheduler.ensureScheduled()
         // Read once before the first frame so a chosen theme never flashes the other one at launch.
         val firstMode = runBlocking(Dispatchers.IO) { themeRepository.current() }
         setContent {
@@ -51,10 +59,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // A notification tapped while the app is open arrives here (see RoutineLaunch.intent).
+    // A notification tapped while the app is open arrives here: check-ins use the extra open=..., older routines RoutineLaunch.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         RoutineLaunch.handle(intent)
+        UiLaunch.handle(intent)
     }
 }

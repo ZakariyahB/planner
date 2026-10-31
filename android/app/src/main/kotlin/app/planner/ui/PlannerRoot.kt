@@ -5,53 +5,28 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,266 +35,222 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.planner.model.Task
 import app.planner.sleep.SleepRepository
 import app.planner.social.SocialEffects
+import app.planner.ui.approval.ApprovalEvent
+import app.planner.ui.approval.ApprovalHost
+import app.planner.ui.approval.ApprovalViewModel
+import app.planner.ui.ask.AskRoute
+import app.planner.ui.ask.AskViewModel
+import app.planner.ui.backlog.BacklogRoute
+import app.planner.ui.backlog.BacklogViewModel
+import app.planner.ui.model.LaunchRequest
+import app.planner.ui.rhythm.FloatingNav
+import app.planner.ui.rhythm.NavItem
+import app.planner.ui.settings.PlannerSettingsRoute
+import app.planner.ui.settings.PlannerSettingsViewModel
+import app.planner.ui.settings.SettingsActions
+import app.planner.ui.settings.SignInEvent
+import app.planner.ui.settings.SignInViewModel
+import app.planner.ui.shell.UiLaunch
+import app.planner.ui.theme.RhythmTheme
+import app.planner.ui.today.TodayRoute
+import app.planner.ui.today.TodayViewModel
+import app.planner.ui.week.WeekRoute
+import app.planner.ui.week.WeekViewModel
+import app.planner.checkin.CheckInSetupCard
 import kotlinx.coroutines.flow.collectLatest
 
-private enum class Tab(val label: String) { TODAY("Today"), CALENDAR("Plan"), TASKS("Tasks"), INSIGHTS("Reflect") }
+// The v2 shell: four tabs in a floating pill (Today, Week, Backlog, Ask), Settings and Reflect over them, and the
+// approval sheet / screen over everything. Approval opens from the Today banner, any "Review" button, a proposal from
+// Ask, and the "Review change" notification (intent extra open=approvals, with changeSetId).
 
-/** Four destinations; the coach opens over the current screen. */
-private sealed interface Destination {
-    data class Main(val tab: Tab) : Destination
+private enum class Tab(val label: String) { TODAY("Today"), WEEK("Week"), BACKLOG("Backlog"), ASK("Ask") }
 
-    data class Settings(val page: SettingsPage) : Destination
+/** Screens drawn over the tabs. Stored as a string so it survives rotation. "legacy:PAGE" is an older settings page. */
+private object Overlay {
+    const val SETTINGS = "settings"
+    const val REFLECT = "reflect"
+    const val LEGACY = "legacy:"
 }
 
-/** How far into the app a destination is: tabs are level 0, the Settings list 1, a Settings page 2. */
-private fun Destination.depth(): Int = when (this) {
-    is Destination.Main -> 0
-    is Destination.Settings -> if (page == SettingsPage.HOME) 1 else 2
-}
+private val NavClearance = 96.dp
 
-/** Tabs fade through each other; going deeper slides in from the right and going back slides in from the left. */
-private fun destinationTransition(from: Destination, to: Destination): ContentTransform {
-    val direction = to.depth().compareTo(from.depth())
-    if (direction == 0) {
-        return ContentTransform(
-            targetContentEnter = fadeIn(tween(NAV_FADE_IN_MS, delayMillis = NAV_FADE_OUT_MS)),
-            initialContentExit = fadeOut(tween(NAV_FADE_OUT_MS)),
-            sizeTransform = NO_SIZE_CHANGE,
-        )
-    }
-    val enter = slideInHorizontally(tween(NAV_SLIDE_MS, easing = FastOutSlowInEasing)) { direction * it / NAV_SLIDE_FRACTION } +
-        fadeIn(tween(NAV_FADE_IN_MS))
-    val exit = slideOutHorizontally(tween(NAV_SLIDE_MS, easing = FastOutSlowInEasing)) { -direction * it / NAV_SLIDE_FRACTION } +
-        fadeOut(tween(NAV_FADE_OUT_MS))
-    return ContentTransform(targetContentEnter = enter, initialContentExit = exit, sizeTransform = NO_SIZE_CHANGE)
-}
-
-/** The screens always fill the same space, so the container never needs to animate its size. */
-private val NO_SIZE_CHANGE = SizeTransform(clip = false) { _, _ -> snap() }
-
-private const val NAV_FADE_OUT_MS = 90
-private const val NAV_FADE_IN_MS = 180
-private const val NAV_SLIDE_MS = 260
-private const val NAV_SLIDE_FRACTION = 8
-
-/**
- * Shows [text] briefly, with Undo when [undoChangeId] is set. A snackbar with an action never times out unless it
- * is given a duration, so one is always set; every change can also be undone later from Change history.
- */
-private suspend fun SnackbarHostState.announce(text: String, undoChangeId: Long?, undo: (Long) -> Unit) {
-    val result = showSnackbar(text, actionLabel = if (undoChangeId != null) "Undo" else null, duration = SnackbarDuration.Short)
-    if (result == SnackbarResult.ActionPerformed) undoChangeId?.let(undo)
-}
-
-/** Null [task] means "add a new one". */
-private data class EditorTarget(val task: Task?)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerRoot() {
-    val tasksVm: TasksViewModel = hiltViewModel()
-    val calVm: CalendarViewModel = hiltViewModel()
-    val planVm: PlanViewModel = hiltViewModel()
-    val readinessVm: ReadinessViewModel = hiltViewModel()
-    val chatVm: ChatViewModel = hiltViewModel()
-    val insightsVm: InsightsViewModel = hiltViewModel()
+    val todayVm: TodayViewModel = hiltViewModel()
+    val weekVm: WeekViewModel = hiltViewModel()
+    val backlogVm: BacklogViewModel = hiltViewModel()
+    val askVm: AskViewModel = hiltViewModel()
+    val approvalVm: ApprovalViewModel = hiltViewModel()
+    val signInVm: SignInViewModel = hiltViewModel()
+    val appearanceVm: AppearanceViewModel = hiltViewModel()
     SocialEffects()
 
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
-    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
-    var editor by remember { mutableStateOf<EditorTarget?>(null) }
-    var progressFor by remember { mutableStateOf<Task?>(null) }
-    var showCoach by rememberSaveable { mutableStateOf(false) }
+    var overlay by rememberSaveable { mutableStateOf<String?>(null) }
+    var approvalOpen by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    val coachSnackbar = remember { SnackbarHostState() }
-    val screenState = rememberSaveableStateHolder()
+    val tabState = rememberSaveableStateHolder()
 
-    // Google's consent screen opens only after the user taps Connect, never on a silent background sync.
-    var userConnecting by remember { mutableStateOf(false) }
-    val sync by calVm.sync.collectAsStateWithLifecycle()
-    val lastSynced by calVm.lastSyncedAt.collectAsStateWithLifecycle()
-    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { calVm.onConsentResult(it.data) }
-    LaunchedEffect(sync, userConnecting) {
-        val s = sync
-        when {
-            s is SyncUi.NeedsConsent && userConnecting -> {
-                userConnecting = false
-                consent.launch(IntentSenderRequest.Builder(s.sender).build())
+    val today by todayVm.state.collectAsStateWithLifecycle()
+    val pending = today?.pendingCount ?: 0
+
+    val openApproval: (String?) -> Unit = { id ->
+        approvalVm.open(id)
+        approvalOpen = true
+    }
+
+    // Google's consent screen opens only after the user taps Sign in.
+    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { signInVm.onConsentResult(it.data) }
+    LaunchedEffect(signInVm) {
+        signInVm.messages.collect { e ->
+            when (e) {
+                is SignInEvent.NeedsConsent -> consent.launch(IntentSenderRequest.Builder(e.sender).build())
+                is SignInEvent.Message -> snackbar.showSnackbar(e.text)
             }
-            s !is SyncUi.Syncing && s !is SyncUi.NeedsConsent -> userConnecting = false
         }
     }
-    val onConnect = {
-        userConnecting = true
-        calVm.refresh()
-        Unit
-    }
+    val signIn = { signInVm.signIn(); Unit }
 
-    // Health Connect has its own permission screen; when it closes, read sleep again.
-    val health = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { readinessVm.syncSleep() }
-    val onAllowHealth = { health.launch(SleepRepository.PERMISSIONS) }
+    // Health Connect has its own permission screen (used by the older Sleep page).
+    val health = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { }
 
-    // Plan feedback, with Undo when the change can be reverted.
-    LaunchedEffect(Unit) {
-        planVm.messages.collectLatest { m -> (if (showCoach) coachSnackbar else snackbar).announce(m.text, m.undoChangeId, planVm::undo) }
-    }
-
-    // Changes the assistant made for the user get the same Undo snackbar.
-    LaunchedEffect(Unit) {
-        chatVm.announcements.collectLatest { m -> (if (showCoach) coachSnackbar else snackbar).announce(m.text, m.undoChangeId, planVm::undo) }
-    }
-
-    val openTemplate = { showSettings = true; settingsPage = SettingsPage.TEMPLATE }
-
-    // Back steps up one level: a settings page to the list, the list to wherever you were.
-    val goBack = { if (settingsPage != SettingsPage.HOME) settingsPage = SettingsPage.HOME else showSettings = false }
-    val openCoach = {
-        if (!showSettings && tab == Tab.CALENDAR && chatVm.draft.value.isBlank() && planVm.visibleStart.value != java.time.LocalDate.now()) {
-            chatVm.setDraft("About my plan for ${planVm.visibleStart.value.format(dateFormat)}: ")
+    // After an approval: what was written, with Undo.
+    LaunchedEffect(approvalVm) {
+        approvalVm.messages.collectLatest { e ->
+            when (e) {
+                is ApprovalEvent.Applied -> {
+                    val r = snackbar.showSnackbar(e.text, actionLabel = if (e.record != null) "Undo" else null, duration = SnackbarDuration.Long)
+                    if (r == SnackbarResult.ActionPerformed) e.record?.let { approvalVm.undo(it) }
+                }
+                is ApprovalEvent.Message -> snackbar.showSnackbar(e.text)
+            }
         }
-        showCoach = true
     }
-    BackHandler(enabled = showSettings) { goBack() }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    val title = when {
-                        !showSettings -> tab.label
-                        settingsPage == SettingsPage.HOME -> "Settings"
-                        else -> settingsPage.title
+    // Notifications ask for a destination through the intent; MainActivity hands it to UiLaunch.
+    val launch by UiLaunch.requests.collectAsStateWithLifecycle()
+    LaunchedEffect(launch) {
+        when (val r = launch) {
+            null -> return@LaunchedEffect
+            is LaunchRequest.Approvals -> { overlay = null; openApproval(r.changeSetId) }
+            LaunchRequest.Today -> { overlay = null; tab = Tab.TODAY }
+            LaunchRequest.Week -> { overlay = null; tab = Tab.WEEK }
+            LaunchRequest.Chat -> { overlay = null; tab = Tab.ASK }
+            LaunchRequest.Settings -> overlay = Overlay.SETTINGS
+        }
+        UiLaunch.consume()
+    }
+
+    BackHandler(enabled = overlay != null) {
+        overlay = when {
+            overlay?.startsWith(Overlay.LEGACY) == true -> Overlay.SETTINGS
+            else -> null
+        }
+    }
+    BackHandler(enabled = overlay == null && tab != Tab.TODAY && !approvalOpen) { tab = Tab.TODAY }
+
+    Surface(Modifier.fillMaxSize(), color = RhythmTheme.colors.ground) {
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                AnimatedContent(
+                    targetState = tab,
+                    transitionSpec = { fadeIn(tween(180, delayMillis = 60)) togetherWith fadeOut(tween(90)) },
+                    label = "tab",
+                ) { t ->
+                    tabState.SaveableStateProvider(t.name) {
+                        when (t) {
+                            Tab.TODAY -> TodayRoute(
+                                todayVm, snackbar,
+                                onOpenApproval = openApproval,
+                                onOpenSettings = { overlay = Overlay.SETTINGS },
+                                onSignIn = signIn,
+                                bottomPadding = NavClearance,
+                                setupCard = { CheckInSetupCard(Modifier.fillMaxWidth().padding(bottom = 10.dp)) },
+                            )
+                            Tab.WEEK -> WeekRoute(weekVm, snackbar, openApproval, onOpenReflect = { overlay = Overlay.REFLECT }, bottomPadding = NavClearance)
+                            Tab.BACKLOG -> BacklogRoute(backlogVm, snackbar, openApproval, bottomPadding = NavClearance)
+                            Tab.ASK -> AskRoute(askVm, openApproval, bottomPadding = NavClearance)
+                        }
                     }
-                    Text(title, style = MaterialTheme.typography.headlineSmall)
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-                navigationIcon = {
-                    if (showSettings) IconButton(onClick = goBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
-                    else Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 18.dp, end = 8.dp).size(34.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(20.dp)) }
-                    }
-                },
-                actions = {
-                    if (!showSettings) {
-                        IconButton(onClick = { editor = EditorTarget(null) }) { Icon(Icons.Outlined.Add, "Add task") }
-                        IconButton(onClick = { settingsPage = SettingsPage.HOME; showSettings = true }) { Icon(Icons.Outlined.Settings, "Your space and settings") }
-                    }
-                },
+                }
+            }
+
+            FloatingNav(
+                items = Tab.entries.map { NavItem(it.name, it.label, badge = if (it == Tab.ASK) pending else 0) },
+                selected = tab.name,
+                onSelect = { key -> tab = Tab.valueOf(key) },
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 14.dp),
             )
-        },
-        bottomBar = {
-            Column {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                CoachDock(onClick = openCoach)
-                NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
-                Tab.entries.forEach { t ->
-                    NavigationBarItem(
-                        selected = !showSettings && tab == t,
-                        onClick = { tab = t; showSettings = false; settingsPage = SettingsPage.HOME },
-                        icon = {
-                            when (t) {
-                                Tab.TODAY -> Icon(Icons.Outlined.Home, null)
-                                Tab.CALENDAR -> Icon(Icons.Outlined.DateRange, null)
-                                Tab.TASKS -> Icon(Icons.Outlined.CheckCircle, null)
-                                Tab.INSIGHTS -> ReflectIcon(if (!showSettings && tab == t) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        },
-                        label = { Text(t.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+
+            val o = overlay
+            when {
+                o == Overlay.SETTINGS -> Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                    val mode by appearanceVm.mode.collectAsStateWithLifecycle()
+                    val settingsVm: PlannerSettingsViewModel = hiltViewModel()
+                    PlannerSettingsRoute(
+                        settingsVm, mode,
+                        SettingsActions(
+                            onUpdate = { f -> settingsVm.update(f) },
+                            onSignIn = signIn,
+                            onRefresh = { settingsVm.refresh() },
+                            onTheme = appearanceVm::choose,
+                            onOpenReflect = { overlay = Overlay.REFLECT },
+                            onOpenLegacy = { page -> overlay = Overlay.LEGACY + page.name },
+                            onBack = { overlay = null },
                         ),
-                        alwaysShowLabel = true,
                     )
                 }
+                o == Overlay.REFLECT -> OverPage("Reflect", onBack = { overlay = null }) { InsightsScreen(hiltViewModel()) }
+                o != null && o.startsWith(Overlay.LEGACY) -> {
+                    val page = SettingsPage.entries.firstOrNull { it.name == o.removePrefix(Overlay.LEGACY) } ?: SettingsPage.HOME
+                    OverPage(page.title, onBack = { overlay = Overlay.SETTINGS }) {
+                        SettingsScreen(
+                            page = page,
+                            onNavigate = { p -> overlay = Overlay.LEGACY + p.name },
+                            calVm = hiltViewModel(), readinessVm = hiltViewModel(), planVm = hiltViewModel(),
+                            chatVm = hiltViewModel(), tasksVm = hiltViewModel(),
+                            onConnect = signIn,
+                            onAllowHealth = { health.launch(SleepRepository.PERMISSIONS) },
+                        )
+                    }
                 }
             }
-        },
-    ) { padding ->
-        val destination = if (showSettings) Destination.Settings(settingsPage) else Destination.Main(tab)
-        AnimatedContent(
-            targetState = destination,
-            modifier = Modifier.padding(padding),
-            transitionSpec = { destinationTransition(initialState, targetState) },
-            label = "destination",
-        ) { dest ->
-            screenState.SaveableStateProvider(if (dest is Destination.Main) dest.tab.name else "settings-${(dest as Destination.Settings).page.name}") {
-            when (dest) {
-                is Destination.Settings -> SettingsScreen(
-                    page = dest.page,
-                    onNavigate = { settingsPage = it },
-                    calVm = calVm, readinessVm = readinessVm, planVm = planVm, chatVm = chatVm, tasksVm = tasksVm,
-                    onConnect = onConnect, onAllowHealth = onAllowHealth,
-                )
-                is Destination.Main -> when (dest.tab) {
-                    Tab.TODAY -> TodayScreen(
-                        tasksVm, calVm, planVm, readinessVm, onConnect, onAllowHealth,
-                        onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) },
-                        onLogProgress = { progressFor = it },
-                        onOpenTemplate = openTemplate,
-                        onOpenPlan = { tab = Tab.CALENDAR },
-                    )
-                    Tab.CALENDAR -> CalendarScreen(planVm, calendarConnected = lastSynced != null, onEditTask = { editor = EditorTarget(it) }, onLogProgress = { progressFor = it })
-                    Tab.TASKS -> TasksScreen(tasksVm, planVm, onEdit = { editor = EditorTarget(it) }, onAdd = { editor = EditorTarget(null) }, onLogProgress = { progressFor = it }, onOpenTemplate = openTemplate)
-                    Tab.INSIGHTS -> InsightsScreen(insightsVm)
-                }
+
+            if (approvalOpen) {
+                ApprovalHost(approvalVm, onClose = { approvalOpen = false })
             }
-            }
+
+            SnackbarHost(
+                snackbar,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = if (overlay == null) 86.dp else 12.dp),
+            )
         }
     }
 
-    NotificationPermissionPrompt()
     RoutineScreens(
-        onAsk = { draft -> chatVm.setDraft(draft); showCoach = true },
-        onOpenTemplate = openTemplate,
+        onAsk = { draft -> askVm.setDraft(draft); overlay = null; tab = Tab.ASK },
+        onOpenTemplate = { overlay = Overlay.LEGACY + SettingsPage.TEMPLATE.name },
     )
+}
 
-    if (showCoach) {
-        ModalBottomSheet(
-            onDismissRequest = { showCoach = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.background,
-        ) {
-            Column(Modifier.fillMaxWidth().fillMaxHeight(.92f).imePadding()) {
-                Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("A little help with your day", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { showCoach = false }) { Icon(Icons.Outlined.Close, "Close AI chat") }
-                }
-                Box(Modifier.weight(1f)) {
-                    ChatScreen(chatVm, showHeader = false)
-                    SnackbarHost(coachSnackbar, Modifier.align(Alignment.BottomCenter).padding(12.dp))
-                }
+/** A full-screen page over the tabs with a back arrow, for Reflect and the older settings pages. */
+@Composable
+private fun OverPage(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+    Surface(Modifier.fillMaxSize(), color = RhythmTheme.colors.ground) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back", tint = RhythmTheme.colors.ink) }
+                Text(title, style = MaterialTheme.typography.headlineSmall)
             }
+            Box(Modifier.weight(1f)) { content() }
         }
-    }
-
-    progressFor?.let { task ->
-        ProgressSheet(
-            task = task,
-            onSave = { minutes, outcome -> tasksVm.logProgress(task, minutes, outcome); progressFor = null },
-            onDismiss = { progressFor = null },
-        )
-    }
-
-    editor?.let { target ->
-        TaskEditor(
-            task = target.task,
-            onSave = { tasksVm.save(it); editor = null },
-            onSaveOnDays = { t, dates -> tasksVm.saveOnDates(t, dates); editor = null },
-            onDrop = target.task?.let { t -> { tasksVm.drop(t); editor = null } },
-            onDismiss = { editor = null },
-        )
     }
 }
