@@ -150,6 +150,10 @@ data class NotificationPrefs(
     val extendMin: Int = 30,
     val nightBeforeReview: LocalTime = LocalTime.of(21, 30),
     val sundayPrompts: Boolean = true,
+    val nightBeforeReviewEnabled: Boolean = true,
+    val sundayDeadlinesAt: LocalTime = LocalTime.of(19, 0),
+    val fajrPromptDay: DayOfWeek = DayOfWeek.SUNDAY,
+    val fajrPromptAt: LocalTime = LocalTime.of(12, 0),
 )
 
 data class Settings(
@@ -170,6 +174,8 @@ data class Settings(
     val stripWeekTagsOnRollover: Boolean = false,
     /** Lecture recordings: available this long after the slot ends. */
     val recordingDelayMin: Int = 60,
+    /** Sleep need for readiness (coaching only; never used by the scheduler). */
+    val sleepNeedMin: Int = 420,
     val notifications: NotificationPrefs = NotificationPrefs(),
     val zone: ZoneId = ZoneId.of("Europe/London"),
     /** Model used for chat; the Worker routes cheaper runs itself. */

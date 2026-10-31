@@ -96,16 +96,23 @@ internal data class NotificationPrefsDto(
     val extendMin: Int = PREFS_DEFAULTS.extendMin,
     val nightBeforeReview: LocalTime = PREFS_DEFAULTS.nightBeforeReview,
     val sundayPrompts: Boolean = PREFS_DEFAULTS.sundayPrompts,
+    val nightBeforeReviewEnabled: Boolean = PREFS_DEFAULTS.nightBeforeReviewEnabled,
+    val sundayDeadlinesAt: LocalTime = PREFS_DEFAULTS.sundayDeadlinesAt,
+    /** DayOfWeek name; an unknown name falls back to the default. */
+    val fajrPromptDay: String = PREFS_DEFAULTS.fajrPromptDay.name,
+    val fajrPromptAt: LocalTime = PREFS_DEFAULTS.fajrPromptAt,
 )
 
 internal fun NotificationPrefs.toDto() = NotificationPrefsDto(
     checkInsEnabled, mergeBackToBack, startOnlyUnderMin, quietDuringPrayer, midTaskPrayerPing, askFocusOnDone,
     snoozeMin, extendMin, nightBeforeReview, sundayPrompts,
+    nightBeforeReviewEnabled, sundayDeadlinesAt, fajrPromptDay.name, fajrPromptAt,
 )
 
 internal fun NotificationPrefsDto.toModel() = NotificationPrefs(
     checkInsEnabled, mergeBackToBack, startOnlyUnderMin, quietDuringPrayer, midTaskPrayerPing, askFocusOnDone,
     snoozeMin, extendMin, nightBeforeReview, sundayPrompts,
+    nightBeforeReviewEnabled, sundayDeadlinesAt, enumOrNull<DayOfWeek>(fajrPromptDay) ?: PREFS_DEFAULTS.fajrPromptDay, fajrPromptAt,
 )
 
 @Serializable
@@ -125,6 +132,7 @@ internal data class SettingsDto(
     val convertAllDayOnSchedule: Boolean = SETTINGS_DEFAULTS.convertAllDayOnSchedule,
     val stripWeekTagsOnRollover: Boolean = SETTINGS_DEFAULTS.stripWeekTagsOnRollover,
     val recordingDelayMin: Int = SETTINGS_DEFAULTS.recordingDelayMin,
+    val sleepNeedMin: Int = SETTINGS_DEFAULTS.sleepNeedMin,
     val notifications: NotificationPrefsDto = NotificationPrefsDto(),
     /** IANA zone id; an id this device does not know falls back to the default zone. */
     val zone: String = SETTINGS_DEFAULTS.zone.id,
@@ -144,6 +152,7 @@ internal fun Settings.toDto() = SettingsDto(
     convertAllDayOnSchedule = convertAllDayOnSchedule,
     stripWeekTagsOnRollover = stripWeekTagsOnRollover,
     recordingDelayMin = recordingDelayMin,
+    sleepNeedMin = sleepNeedMin,
     notifications = notifications.toDto(),
     zone = zone.id,
     assistantModel = assistantModel,
@@ -162,6 +171,7 @@ internal fun SettingsDto.toModel() = Settings(
     convertAllDayOnSchedule = convertAllDayOnSchedule,
     stripWeekTagsOnRollover = stripWeekTagsOnRollover,
     recordingDelayMin = recordingDelayMin,
+    sleepNeedMin = sleepNeedMin,
     notifications = notifications.toModel(),
     zone = zoneOrDefault(zone),
     assistantModel = assistantModel,
