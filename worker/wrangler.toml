@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
 [vars]
-ALLOWED_EMAIL = "bello.zakariyah20@gmail.com"
+ALLOWED_EMAIL = "ademolab20@gmail.com"
 # Must equal the Web client ID in Google Cloud; the ID token's `aud` is checked against it.
-GOOGLE_WEB_CLIENT_ID = "REPLACE_WITH_WEB_CLIENT_ID"
+GOOGLE_WEB_CLIENT_ID = "592220895128-71cdd84i50hfc643f3gkjf4pl9hc2h46.apps.googleusercontent.com"
 MONTHLY_CAP_GBP = "15"
 # Optional: override the models (defaults: claude-sonnet-5-5 for chat and replans, claude-haiku-5-5 for scheduled runs).
 # MODEL_CHAT = "claude-sonnet-5-5"
@@ -14,6 +14,6 @@ MONTHLY_CAP_GBP = "15"
 # Create with: wrangler kv namespace create USAGE, then paste the id here.
 [[kv_namespaces]]
 binding = "USAGE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "30c8be49f5c14209a13e5c68d85e4682"
 
 # Secret (not stored here): wrangler secret put ANTHROPIC_API_KEY
