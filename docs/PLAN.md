@@ -1,6 +1,6 @@
 # Day Planner v2: build plan (for Claude Code)
 
-> **Superseded by v2.** This is the original (v1) build plan, kept for history. The current spec is [redesign/newplan.md](redesign/newplan.md) and the build plan is [redesign/STREAMS.md](redesign/STREAMS.md).
+> **Superseded.** This is the earlier build plan, kept for history. It is not the Planner v2 described in newplan.md. The current spec is [redesign/newplan.md](redesign/newplan.md) and the build plan is [redesign/STREAMS.md](redesign/STREAMS.md).
 
 ## Context
 
