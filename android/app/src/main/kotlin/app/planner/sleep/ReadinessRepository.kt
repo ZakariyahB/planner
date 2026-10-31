@@ -8,6 +8,7 @@ import app.planner.data.TaskRepository
 import app.planner.data.toEntity
 import app.planner.data.toReadiness
 import app.planner.data.toSession
+import app.planner.engine.ports.SettingsStore
 import app.planner.model.TaskStatus
 import app.planner.readiness.Readiness
 import app.planner.readiness.ReadinessBand
@@ -51,6 +52,7 @@ class ReadinessRepository @Inject constructor(
     private val tasks: TaskRepository,
     private val dayRules: DayRulesRepository,
     private val clock: Clock,
+    private val settings: SettingsStore,
 ) {
 
     /**
@@ -64,6 +66,7 @@ class ReadinessRepository @Inject constructor(
         val rules = dayRules.current()
         val days = days()
         val doneRatio = doneRatio(today.minusDays(1))
+        val config = config()
 
         val stored = readinessDao.get(today.toString())?.toReadiness()
         val todayDay = days.firstOrNull { it.wakeDate == today && it.mainWake <= now }
@@ -91,7 +94,7 @@ class ReadinessRepository @Inject constructor(
         return ReadinessView(
             state = state,
             newlyFinal = newlyFinal,
-            forecast = forecast(days, today, rules, doneRatio = doneRatio(today)),
+            forecast = forecast(days, today, rules, doneRatio = doneRatio(today), config = config),
             night = todayDay?.toNight(),
             recentNights = nights.takeLast(RECENT_NIGHTS),
             day = todayDay,
@@ -105,7 +108,7 @@ class ReadinessRepository @Inject constructor(
     suspend fun recentDays(count: Int): List<SleepDay> = days().takeLast(count)
 
     /** Rolling totals, debt and the last seven sleep days in a few numbers, for the assistant. */
-    suspend fun sleepSummary(): SleepSummary = SleepSummaries.summarise(days(), clock.instant(), clock.zone, config.needMin)
+    suspend fun sleepSummary(): SleepSummary = SleepSummaries.summarise(days(), clock.instant(), clock.zone, config().needMin)
 
     /** The final score stored for [date], if that day was scored. */
     suspend fun finalFor(date: LocalDate): Readiness? = readinessDao.get(date.toString())?.toReadiness()
@@ -115,13 +118,16 @@ class ReadinessRepository @Inject constructor(
         readinessDao.get(LocalDate.now(clock).toString())?.band?.let(ReadinessBand::valueOf)
 
     /** Every record of the last three weeks (Health Connect rows were already filtered by source at sync) as sleep days. */
+    /** The need comes from the v2 Settings; the finality rules keep their defaults. */
+    private suspend fun config(): ReadinessConfig = ReadinessConfig(needMin = settings.current().sleepNeedMin)
+
     private suspend fun days(): List<SleepDay> {
         val since = clock.instant().minus(Duration.ofDays(21)).toEpochMilli()
         return SleepDays.build(sleep.since(since).map { it.toSession() }, clock.zone)
     }
 
     /** Shown from 23:30: what tomorrow's score looks like for lights-out at 00:15 against his usual time. */
-    private fun forecast(days: List<SleepDay>, today: LocalDate, rules: DayRules, doneRatio: Double?): Forecast? {
+    private fun forecast(days: List<SleepDay>, today: LocalDate, rules: DayRules, doneRatio: Double?, config: ReadinessConfig): Forecast? {
         if (LocalTime.now(clock) < FORECAST_FROM) return null
         val onTime = ReadinessEngine.forecast(rules.lightsOut, rules.wake, today, days, doneRatio, config)
         val usualTime = ReadinessEngine.medianLightsOut(days.takeLast(7), clock.zone)
@@ -142,7 +148,5 @@ class ReadinessRepository @Inject constructor(
         val FORECAST_FROM: LocalTime = LocalTime.of(23, 30)
         const val RECENT_NIGHTS = 7
 
-        /** The default need (7h) and finality rules until Settings carries a sleep need (see docs/redesign/CHANGES.md). */
-        val config = ReadinessConfig()
     }
 }

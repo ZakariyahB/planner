@@ -36,7 +36,7 @@ data class Nudge(
     val forDate: LocalDate,
 )
 
-/** When the weekly prompts go out. Kept here (not in the contract Settings) until the master adds them there. */
+/** When the weekly prompts go out. Built from [NotificationPrefs] by [from]; the defaults match NotificationPrefs'. */
 data class NudgeSchedule(
     val deadlinesDay: DayOfWeek = DayOfWeek.SUNDAY,
     /** The legacy Sunday review went out at 19:00; the deadlines prompt replaces it at the same time. */
@@ -45,7 +45,16 @@ data class NudgeSchedule(
     /** Midday, so it does not arrive on top of the deadlines prompt. */
     val fajrAt: LocalTime = LocalTime.of(12, 0),
     val nightBeforeEnabled: Boolean = true,
-)
+) {
+    companion object {
+        fun from(prefs: app.planner.engine.model.NotificationPrefs) = NudgeSchedule(
+            deadlinesAt = prefs.sundayDeadlinesAt,
+            fajrDay = prefs.fajrPromptDay,
+            fajrAt = prefs.fajrPromptAt,
+            nightBeforeEnabled = prefs.nightBeforeReviewEnabled,
+        )
+    }
+}
 
 object NudgePlanner {
     private const val LOOKAHEAD_DAYS = 8L
@@ -60,7 +69,7 @@ object NudgePlanner {
         now: LocalDateTime,
         settings: Settings,
         anchorsOn: (LocalDate) -> List<PrayerAnchor> = { emptyList() },
-        schedule: NudgeSchedule = NudgeSchedule(),
+        schedule: NudgeSchedule = NudgeSchedule.from(settings.notifications),
     ): List<Nudge> {
         val prefs = settings.notifications
         val kinds = buildList {
