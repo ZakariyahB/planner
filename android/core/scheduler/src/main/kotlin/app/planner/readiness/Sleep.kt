@@ -7,12 +7,22 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** A stretch inside a sleep record when he was awake: the night's interruptions. */
-data class AwakePeriod(val start: Instant, val end: Instant) {
+/** Why he was awake during a night, when he has said. */
+enum class InterruptionReason { FAJR, TOILET, COULD_NOT_SLEEP, OTHER }
+
+/**
+ * A stretch when he was awake: inside a sleep record, or the gap between two records of one night (the Fajr
+ * wake-up). [reason] is null until he tags it.
+ */
+data class AwakePeriod(val start: Instant, val end: Instant, val reason: InterruptionReason? = null) {
     val minutes: Int get() = minutesBetween(start, end)
 }
 
-/** One sleep record from Health Connect (or typed in by hand). [awake] are the interruptions inside it. */
+/**
+ * One sleep record from Health Connect (or typed in by hand). [awake] are the interruptions inside it.
+ * [origin] is the package of the app that wrote it (Health Connect's `dataOrigin`), null when not known
+ * (typed in, or stored before the origin was kept).
+ */
 data class SleepSession(
     val start: Instant,
     val end: Instant,
@@ -21,13 +31,22 @@ data class SleepSession(
     val remMin: Int = 0,
     val manual: Boolean = false,
     val awake: List<AwakePeriod> = emptyList(),
+    val origin: String? = null,
 )
 
 data class SleepBlock(val start: Instant, val end: Instant, val asleepMin: Int, val awake: List<AwakePeriod> = emptyList())
 
-/** The night that ends on the morning of [date]; usually one block, or two when he wakes at Fajr and goes back to bed. */
-data class SleepNight(val date: LocalDate, val blocks: List<SleepBlock>) {
-    val asleepMin: Int get() = blocks.sumOf { it.asleepMin }
+/**
+ * The older one-night view of a [SleepDay], kept for the screens and insights that show a night.
+ * [blocks] are the main sleep (one block, or two when he wakes at Fajr and goes back to bed); [extra] is the
+ * rest of the sleep day: a second sleep later in the morning, naps. [date] is the morning he woke up.
+ */
+data class SleepNight(val date: LocalDate, val blocks: List<SleepBlock>, val extra: List<SleepBlock> = emptyList()) {
+    /** All sleep of the sleep day, the main sleep and anything after it. */
+    val asleepMin: Int get() = nightAsleepMin + extra.sumOf { it.asleepMin }
+
+    /** Sleep in the main blocks only. */
+    val nightAsleepMin: Int get() = blocks.sumOf { it.asleepMin }
     val lightsOut: Instant get() = blocks.first().start
     val firstBlockEnd: Instant get() = blocks.first().end
     val lastEnd: Instant get() = blocks.last().end
@@ -93,52 +112,12 @@ object SleepGrouping {
     /** Awake stretches shorter than this are not interruptions: the watch logs half-minute stirrings all night. */
     const val MIN_INTERRUPTION_MIN = 1
 
-    private val MERGE_GAP: Duration = Duration.ofMinutes(30)
-    private val MIN_SESSION: Duration = Duration.ofMinutes(20)
-    private val NAP_FROM: LocalTime = LocalTime.of(11, 0)
-    private val EVENING_FROM: LocalTime = LocalTime.of(19, 0)
-
     /**
-     * Groups sessions into nights. A session starting from 19:00 belongs to the next morning's night;
-     * sessions starting 11:00–19:00 are naps and are ignored; sessions under 20 minutes are noise.
-     * Blocks less than 30 minutes apart are merged (a brief wake-up is not a second sleep).
+     * The sleep days on record as one-night views, oldest first. Every record counts, whatever its length or
+     * time of day; see [SleepDays.build] for how records become episodes and days.
      */
     fun group(sessions: List<SleepSession>, zone: ZoneId): List<SleepNight> =
-        sessions
-            .filter { Duration.between(it.start, it.end) >= MIN_SESSION }
-            .mapNotNull { s ->
-                val local = s.start.atZone(zone)
-                val t = local.toLocalTime()
-                when {
-                    t >= NAP_FROM && t < EVENING_FROM -> null
-                    t >= EVENING_FROM -> local.toLocalDate().plusDays(1) to s
-                    else -> local.toLocalDate() to s
-                }
-            }
-            .groupBy({ it.first }, { it.second })
-            .map { (date, list) -> SleepNight(date, mergeBlocks(list.sortedBy { it.start })) }
-            .sortedBy { it.date }
-
-    private fun mergeBlocks(sorted: List<SleepSession>): List<SleepBlock> {
-        val blocks = mutableListOf<SleepBlock>()
-        for (s in sorted) {
-            val last = blocks.lastOrNull()
-            if (last != null && Duration.between(last.end, s.start) < MERGE_GAP) {
-                // Two apps can record the same night; the overlap must not be counted twice.
-                val overlap = if (s.start < last.end) minutesBetween(s.start, minOf(last.end, s.end)) else 0
-                val gap = if (s.start > last.end) listOf(AwakePeriod(last.end, s.start)) else emptyList()
-                blocks[blocks.lastIndex] = SleepBlock(
-                    last.start,
-                    maxOf(last.end, s.end),
-                    last.asleepMin + (s.asleepMin - minOf(overlap, s.asleepMin)),
-                    last.awake + gap + s.awake,
-                )
-            } else {
-                blocks += SleepBlock(s.start, s.end, s.asleepMin, s.awake)
-            }
-        }
-        return blocks
-    }
+        SleepDays.build(sessions, zone).map { it.toNight() }
 }
 
 enum class SleepPhaseKind { ASLEEP, AWAKE }
@@ -176,7 +155,8 @@ fun SleepNight.summaryLine(zone: ZoneId): String {
         1 -> "1 interruption, ${SleepText.duration(awakeMin)} awake"
         else -> "$count interruptions, ${SleepText.duration(awakeMin)} awake"
     }
-    return "${SleepText.clock(lightsOut, zone)} to ${SleepText.clock(lastEnd, zone)} · slept ${SleepText.duration(asleepMin)} of ${SleepText.duration(inBedMin)} in bed · $breaks"
+    val later = if (extra.isEmpty()) "" else " · plus ${SleepText.duration(asleepMin - nightAsleepMin)} later"
+    return "${SleepText.clock(lightsOut, zone)} to ${SleepText.clock(lastEnd, zone)} · slept ${SleepText.duration(nightAsleepMin)} of ${SleepText.duration(inBedMin)} in bed · $breaks$later"
 }
 
 object SleepText {
